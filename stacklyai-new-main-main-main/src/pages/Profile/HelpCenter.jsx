@@ -43,14 +43,14 @@ export default function HelpCenter() {
         if (!token) throw new Error("No authentication token found");
         if (!userId) throw new Error("No user ID found in storage");
 
-        const profileResponse = await axios.get("http://localhost:8000/profile", {
+        const profileResponse = await axios.get("https://www.stacklycloud.com/api/profile", {
           params: { userid: userId },
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const profilePicUrl = profileResponse.data.profile_pic
           ? profileResponse.data.profile_pic.startsWith("/media/profile_pics")
-            ? `http://localhost:8000${profileResponse.data.profile_pic}`
+            ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}`
             : profileResponse.data.profile_pic
           : Pimage;
 
@@ -104,7 +104,7 @@ export default function HelpCenter() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/help-center",
+        "https://www.stacklycloud.com/api/help-center",
         {
           email,
           subject,

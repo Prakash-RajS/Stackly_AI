@@ -61,7 +61,7 @@ export default function HeroProfile() {
         if (!token) throw new Error("No authentication token found");
         if (!userId) throw new Error("No user ID found in storage");
 
-        const response = await axios.get("http://localhost:8000/profile", {
+        const response = await axios.get("https://www.stacklycloud.com/api/profile", {
           params: { userid: userId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -72,7 +72,7 @@ export default function HeroProfile() {
           email: response.data.email || "",
           phone_number: response.data.phone_number || "",
           previewImage: response.data.profile_pic
-            ? `http://localhost:8000${response.data.profile_pic}?t=${Date.now()}`
+            ? `https://www.stacklycloud.com/api/${response.data.profile_pic}?t=${Date.now()}`
             : Pimage,
         };
 
@@ -128,7 +128,7 @@ export default function HeroProfile() {
         formData.append('profile_pic', userData.profile_pic);
       }
 
-      const response = await axios.post('http://localhost:8000/update_profile', formData, {
+      const response = await axios.post('https://www.stacklycloud.com/api/update_profile', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`
@@ -151,7 +151,7 @@ export default function HeroProfile() {
       if (response.data.profile_pic) {
         setUserData(prev => ({
           ...prev,
-          previewImage: `http://localhost:8000${response.data.profile_pic}?t=${Date.now()}`
+          previewImage: `https://www.stacklycloud.com/api/${response.data.profile_pic}?t=${Date.now()}`
         }));
       }
 
@@ -207,7 +207,7 @@ export default function HeroProfile() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token found');
 
-      const response = await axios.post('http://localhost:8000/change_password', {
+      const response = await axios.post('https://www.stacklycloud.com/api/change_password', {
         new_password,
         confirm_password
       }, {
@@ -242,7 +242,7 @@ export default function HeroProfile() {
     if (!forgotEmail) return toast.error("Enter your email");
 
     try {
-      await axios.post("http://localhost:8000/forgot_password", { email: forgotEmail });
+      await axios.post("https://www.stacklycloud.com/api/forgot_password", { email: forgotEmail });
       toast.success("Password reset link sent to your email");
       setShowForgotPasswordModal(false);
       setForgotEmail("");

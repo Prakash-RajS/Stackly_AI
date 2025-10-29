@@ -19,7 +19,7 @@ export default function ImageGeneration() {
   const [formData, setFormData] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
 
-  const backendBaseUrl = "http://localhost:8000";
+  const backendBaseUrl = "https://www.stacklycloud.com/api/";
 
   // Track if this is an initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);

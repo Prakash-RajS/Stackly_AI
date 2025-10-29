@@ -48,7 +48,7 @@ export default function UserContextProvider({ children }) {
         return;
       }
 
-      const response = await fetch("http://localhost:8000/me", {
+      const response = await fetch("https://www.stacklycloud.com/api/me", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

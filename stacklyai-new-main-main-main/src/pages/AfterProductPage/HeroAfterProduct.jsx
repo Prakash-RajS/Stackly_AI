@@ -36,7 +36,7 @@ export default function HeroAfterProducts() {
       if (filter.category) params.category = filter.category;
       if (filter.isFavorite !== null) params.is_favorite = filter.isFavorite;
 
-      const response = await axios.get("http://localhost:8000/designs", {
+      const response = await axios.get("https://www.stacklycloud.com/api/designs", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -201,7 +201,7 @@ export default function HeroAfterProducts() {
     };
   }, [showDraggable]);
 
-  const baseImageUrl = "http://localhost:8000";
+  const baseImageUrl = "https://www.stacklycloud.com/api/";
 
   const RoomCard = ({
     roomName,
@@ -226,7 +226,7 @@ export default function HeroAfterProducts() {
     const handleFavoriteToggleLocal = async () => {
       try {
         const response = await axios.patch(
-          `http://localhost:8000/designs/${id}/favorite`,
+          `https://www.stacklycloud.com/api/designs/${id}/favorite`,
           {},
           {
             headers: {

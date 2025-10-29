@@ -43,18 +43,18 @@ useEffect(() => {
     if (!token) return;
 
     try {
-      const profileResponse = await axios.get("http://localhost:8000/profile", {
+      const profileResponse = await axios.get("https://www.stacklycloud.com/api/profile", {
         params: { userid: userInfo.userId },
         headers: { Authorization: `Bearer ${token}` },
       });
 
       const profilePicUrl = profileResponse.data.profile_pic
-        ? `http://localhost:8000${profileResponse.data.profile_pic}?t=${Date.now()}`
+        ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}?t=${Date.now()}`
         : profile;
 
       setProfilePic(profilePicUrl);
 
-      const subscriptionResponse = await axios.get("http://localhost:8000/subscription", {
+      const subscriptionResponse = await axios.get("https://www.stacklycloud.com/api/subscription", {
         params: { userid: userInfo.userId },
         headers: { Authorization: `Bearer ${token}` },
       });

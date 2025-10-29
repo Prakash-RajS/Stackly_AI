@@ -53,7 +53,7 @@ export default function ResetPassword() {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8000/forget-password/reset-password",
+        "https://www.stacklycloud.com/api/forget-password/reset-password",
         {
           new_password: newPassword,
           confirm_password: confirmPassword,

@@ -157,13 +157,13 @@ export default function AfterBilling() {
       }
 
       try {
-        const profileResponse = await axios.get("http://localhost:8000/profile", {
+        const profileResponse = await axios.get("https://www.stacklycloud.com/api/profile", {
           params: { userid: userId },
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const profilePicUrl = profileResponse.data.profile_pic
-          ? `http://localhost:8000${profileResponse.data.profile_pic}?t=${Date.now()}`
+          ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}?t=${Date.now()}`
           : Pimage;
 
         setProfilePic(profilePicUrl);
@@ -313,7 +313,7 @@ export default function AfterBilling() {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/pricing/create-checkout-session/",
+        "https://www.stacklycloud.com/api/pricing/create-checkout-session/",
         {
           userid: userId,
           plan: formData.plan,

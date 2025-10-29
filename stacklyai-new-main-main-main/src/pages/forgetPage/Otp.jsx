@@ -60,7 +60,7 @@ const [loading, setLoading] = useState(false);
     }
 
     try {
-      await axios.post("http://localhost:8000/forget-password/verify-otp", {
+      await axios.post("https://www.stacklycloud.com/api/forget-password/verify-otp", {
         otp: enteredOtp,
         email,
       });
@@ -98,7 +98,7 @@ const [loading, setLoading] = useState(false);
     setIsResending(true);
 
     try {
-      await axios.post("http://localhost:8000/forget-password/resend-otp", { email });
+      await axios.post("https://www.stacklycloud.com/api/forget-password/resend-otp", { email });
 
       setTimer(45);
       setOtp(["", "", "", "", "", ""]);

@@ -56,7 +56,7 @@ export default function Myplan() {
 
         // Fetch profile data
         const profileResponse = await axios.get(
-          "http://localhost:8000/profile",
+          "https://www.stacklycloud.com/api/profile",
           {
             params: { userid: userId },
             headers: { Authorization: `Bearer ${token}` },
@@ -65,7 +65,7 @@ export default function Myplan() {
 
         const profilePicUrl = profileResponse.data.profile_pic
           ? profileResponse.data.profile_pic.startsWith("/media/profile_pics")
-            ? `http://localhost:8000${profileResponse.data.profile_pic}`
+            ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}`
             : profileResponse.data.profile_pic
           : Pimage;
 
@@ -81,7 +81,7 @@ export default function Myplan() {
 
         // Fetch subscription data
         const subscriptionResponse = await axios.get(
-          "http://localhost:8000/subscription",
+          "https://www.stacklycloud.com/api/subscription",
           {
             params: { userid: userId },
             headers: { Authorization: `Bearer ${token}` },

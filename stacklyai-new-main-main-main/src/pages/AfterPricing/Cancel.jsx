@@ -16,7 +16,7 @@ export default function Cancel() {
     const name = localStorage.getItem("billing_name");
 
     if (email && name) {
-      axios.post("http://localhost:8000/pricing/send-payment-failed-email", {
+      axios.post("https://www.stacklycloud.com/api/pricing/send-payment-failed-email", {
         email,
         name
       }).then(() => {

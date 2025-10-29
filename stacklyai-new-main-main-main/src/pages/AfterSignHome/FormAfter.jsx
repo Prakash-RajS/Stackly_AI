@@ -31,7 +31,7 @@ export default function Form({ selectedImage }) {
   const [imgFile, setImgFile] = useState(null);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [originalImageUrl, setOriginalImageUrl] = useState(null);
-  const backendBaseUrl = "http://localhost:8000";
+  const backendBaseUrl = "https://www.stacklycloud.com/api/";
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [strength, setStrength] = useState("LOW");
 
@@ -260,7 +260,7 @@ export default function Form({ selectedImage }) {
       }
 
       const response = await axios.post(
-        `http://localhost:8000/api/${endpoint}/`,
+        `https://www.stacklycloud.com/api/api/${endpoint}/`,
         formDataToSend,
         {
           onUploadProgress: (progressEvent) => {
