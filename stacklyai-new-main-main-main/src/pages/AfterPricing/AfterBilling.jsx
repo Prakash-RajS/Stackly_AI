@@ -193,7 +193,7 @@ export default function AfterBilling() {
           return;
         }
 
-        const response = await fetch("http://127.0.0.1:8001/api/plans/");
+        const response = await fetch("https://www.stacklycloud.com/admin/api/plans/");
         if (!response.ok) throw new Error("Failed to fetch plans.");
         const data = await response.json();
 

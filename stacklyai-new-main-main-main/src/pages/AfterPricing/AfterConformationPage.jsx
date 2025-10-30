@@ -43,7 +43,7 @@ export default function AfterConformationPage() {
       // Fallback: Fetch plan data from API if state is not available
       const fetchPlan = async () => {
         try {
-          const response = await fetch("http://127.0.0.1:8001/api/plans/");
+          const response = await fetch("https://www.stacklycloud.com/admin/api/plans/");
           if (!response.ok) {
             throw new Error("Failed to fetch plans");
           }

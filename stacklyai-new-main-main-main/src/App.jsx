@@ -138,16 +138,17 @@ export default function App() {
       <Footer />
       {/* <ToastContainer position="top-right" autoClose={2000} hideProgressBar /> */}
       <ToastContainer
-  position="top-right"
-  autoClose={2000}
-  hideProgressBar={false}
-  newestOnTop={false}
-  closeOnClick
-  pauseOnHover={false}
-  pauseOnFocusLoss={false}
-  draggable
-  theme="colored"
-/>
+      position="bottom-right"
+      autoClose={2000}
+      hideProgressBar={false}
+      newestOnTop={false}
+      closeOnClick
+      pauseOnHover={false}
+      pauseOnFocusLoss={false}
+      draggable
+      theme="colored"
+      limit={3} // optional: prevent toast spam
+    />
     </div>
  </>
   );

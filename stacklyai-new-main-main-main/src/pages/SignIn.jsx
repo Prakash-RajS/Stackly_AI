@@ -37,7 +37,8 @@ export default function SignIn() {
       const userData = { userId, email, token };
       setUserInfo(userData);
       localStorage.setItem("userInfo", JSON.stringify(userData));
-      toast.success("Login successful 🎉", { duration: 2000 }); // ✅ Toast for social login
+      toast.success("Login successful 🎉", { autoClose: 2000 });
+ // ✅ Toast for social login
       navigate("/", { replace: true });
     }
   }, [location.search]);

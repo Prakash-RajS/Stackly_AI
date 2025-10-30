@@ -603,7 +603,7 @@ async def auth_callback(request: Request):
         'redirect_uri': AUTH0_CALLBACK_URL,
     }
 
-    response = requests.post(token_url, data=data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    response = requests.post(token_url, data=urlencode(data), headers={'Content-Type': 'application/x-www-form-urlencoded'})
     token_info = response.json()
     access_token = token_info.get('access_token')
     if not access_token:
