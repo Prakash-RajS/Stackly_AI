@@ -63,7 +63,7 @@ const ContactForm = () => {
         toast.dismiss("typing-toast");
         
         toast.error("🔐 You need to login first!", {
-          position: "top-right",
+          position: "bottom-right",
           autoClose: 2000,
           hideProgressBar: true,
           closeOnClick: true,
@@ -85,7 +85,7 @@ const ContactForm = () => {
     toast.dismiss();
 
     toast.error("🚪 You have to login first!", {
-      position: "top-right",
+      position: "bottom-right",
       autoClose: 2000,
       hideProgressBar: true,
       closeOnClick: true,

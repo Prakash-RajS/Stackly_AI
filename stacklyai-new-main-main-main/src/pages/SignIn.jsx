@@ -3,8 +3,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 import axios from "axios";
-import { ToastContainer, toast } from "react-toastify";  
-import "react-toastify/dist/ReactToastify.css";        
+import { toast } from "react-toastify";       
 import logoImg from "../assets/Logo1.png";
 import signBg from "../assets/signBg.png";
 import mobileBg from "../assets/LoginMobileBg.png";
@@ -44,46 +43,55 @@ export default function SignIn() {
   }, [location.search]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.email || !formData.password) {
-      toast.error("Please enter both email and password");
-      return;
-    }
+  if (!formData.email || !formData.password) {
+    toast.error("Please enter both email and password");
+    return;
+  }
 
-    try {
-      setLoading(true); // ✅ Start loading
+  try {
+    setLoading(true);
 
-      const res = await axios.post(
-        "https://www.stacklycloud.com/api/login",
-        {
-          email: formData.email,
-          password: formData.password,
-        },
-        { withCredentials: true }
-      );
+    const res = await axios.post(
+      "https://www.stacklycloud.com/api/login",
+      {
+        email: formData.email,
+        password: formData.password,
+      },
+      { withCredentials: true }
+    );
 
-      const { userId, email, access_token } = res.data;
+    const { userId, email, access_token } = res.data;
 
-      setUserInfo({ userId, email, token: access_token });
+    setUserInfo({ userId, email, token: access_token });
 
-      localStorage.setItem("token", access_token);
-      localStorage.setItem("userId", userId);
-      localStorage.setItem("userEmail", email);
+    localStorage.setItem("token", access_token);
+    localStorage.setItem("userId", userId);
+    localStorage.setItem("userEmail", email);
 
-      toast.success("Login successful 🎉", { duration: 2000 }); // ✅ Success toast
+    toast.success("Login successful 🎉", {
+      autoClose: 2000,
+      pauseOnHover: false,
+      pauseOnFocusLoss: false,
+      closeOnClick: true,
+    });
+
+    // ✅ Wait until toast finishes, then navigate
+    setTimeout(() => {
       navigate("/");
-    } catch (err) {
-      console.error(err);
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        "Invalid email or password";
-      toast.error(msg);
-    } finally {
-      setLoading(false); // ✅ Stop loading after request
-    }
-  };
+    }, 2000);
+  } catch (err) {
+    console.error(err);
+    const msg =
+      err?.response?.data?.message ||
+      err?.response?.data?.detail ||
+      "Invalid email or password";
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
 //   const handleSubmit = (e) => {
 //   e.preventDefault();
@@ -475,8 +483,7 @@ export default function SignIn() {
           </div>
         </div>
       </div>
-
-      <ToastContainer position="top-right" autoClose={3000} theme="dark" />
     </section>
   );
 }
+

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify"; // ✅ Import toast
-import "react-toastify/dist/ReactToastify.css"; // ✅ Ensure styles are loaded
 import Arrow from "../../assets/forgetPg/arrow1.png";
 import BgImage from "../../assets/forgetPg/ForgotPassword.png"; // import the background image
 import BgMobile from "../../assets/forgetPg/ForgotPasswordMobile.png";

@@ -64,92 +64,92 @@ export default function App() {
   
   // console.log("App.jsx userInfo:", userInfo);
 
-  if (loading) return <div className="text-center p-8">Loading...</div>;
-
   return (
-
     <>
-      <ScrollToTop />  {/* used for redirect all pages show top  */}
-    <div className="overflow-x-hidden">
-      <Header />
-
-      <Routes>
-        {/* Conditional Home */}
-        <Route path="/" element={userInfo.userId ? <AfterHome /> : <Home />} />
-        <Route path="/afterhome" element={<AfterHome />} />
-
-        {/* Conditional Pages */}
-        <Route path="/products" element={userInfo.userId ? <AfterProducts /> : <Products />} />
-        <Route path="/pricing" element={userInfo.userId ? <AfterPricing /> : <Pricing />} />
-        <Route path="/api" element={userInfo.userId ? <AfterApi /> : <Api />} />
-        <Route path="/contact" element={userInfo.userId ? <AfterContact /> : <Contact />} />
-        <Route path="/afteruiplan" element={<AfterUiPlan />} />
-
-
-        {/* Auth Pages */}
-        <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/sign-up" element={<SignUp />} />
-        <Route path="/SignupOtp" element={<SignupOtp />} />
-
-        {/* Forget Password Flow */}
-        {/* <Route path="/forgetpg" element={<ForgetPg />} /> */}
-        <Route path="/heroforgetpg" element={<HeroForgetPg />} />
-        <Route path="/otp" element={<Otp />} />
-        <Route path="/resetpassword" element={<ResetPassword />} />
-        <Route path="/resetpopup" element={<ResetPopup />} />
-        <Route path="/SignUpPopUp" element={<SignUpPopUp />} />
-
-        {/* After Payment Pages */}
-        <Route path="/afterbilling" element={<AfterBilling />} />
-      
-        <Route path="/afterpay" element={<AfterPay />} />
-        <Route path="/afterpayment" element={<AfterPayment />} />
-        <Route path="/cancel" element={<Cancel />} />
-        <Route path="/afterpaymentprocessing" element={<AfterPaymentProcessing />} />
-
-        <Route path="/afterconformationpage" element={<AfterConformationPage />} />
-        <Route path="/afterconformationpage1" element={<AfterConformationPage1 />} />
-        <Route path="/afterheropricing" element={<AfterHeroPricing />} />
-
-
-        {/* Profile Pages */}
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/heroprofile" element={<HeroProfile />} />
-        <Route path="/myplan" element={<Myplan />} />
-        <Route path="/mybilling" element={<Mybilling />} />
-        <Route path="/helpcenter" element={<HelpCenter />} />
-
-        {/* Design Form Pages */}
-        <Route path="/form" element={<Form />} />
-        <Route path="/formafter" element={<FormAfter />} />
-        <Route path="/exteriorform" element={<ExteriorForm />} />
-        <Route path="/outdoorform" element={<OutdoorForm />} />
-        <Route path="/ImageGeneration" element={<ImageGeneration />}/>
-        <Route path="/auth-callback" element={<AuthCallback setUserInfo={setUserInfo} />} />
-        
-        <Route path="/explore" element={<AfterCreditStats />} />
-        <Route path="/explore/:roomType" element={<LivingRoom />} />
-      
-        {/* Catch-all fallback for debugging */}
-        <Route path="*" element={<div>404 - Page Not Found</div>} />
-        
-      </Routes>
-
-      <Footer />
-      {/* <ToastContainer position="top-right" autoClose={2000} hideProgressBar /> */}
       <ToastContainer
-      position="bottom-right"
-      autoClose={2000}
-      hideProgressBar={false}
-      newestOnTop={false}
-      closeOnClick
-      pauseOnHover={false}
-      pauseOnFocusLoss={false}
-      draggable
-      theme="colored"
-      limit={3} // optional: prevent toast spam
-    />
-    </div>
- </>
+        position="bottom-right"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        pauseOnHover={false}
+        pauseOnFocusLoss={false}
+        draggable
+        theme="colored"
+        limit={3} // optional: prevent toast spam
+      />
+      <ScrollToTop />  {/* used for redirect all pages show top  */}
+      {loading ? (
+        <div className="text-center p-8">Loading...</div>
+      ) : (
+        <div className="overflow-x-hidden">
+          <Header />
+
+          <Routes>
+            {/* Conditional Home */}
+            <Route path="/" element={userInfo.userId ? <AfterHome /> : <Home />} />
+            <Route path="/afterhome" element={<AfterHome />} />
+
+            {/* Conditional Pages */}
+            <Route path="/products" element={userInfo.userId ? <AfterProducts /> : <Products />} />
+            <Route path="/pricing" element={userInfo.userId ? <AfterPricing /> : <Pricing />} />
+            <Route path="/api" element={userInfo.userId ? <AfterApi /> : <Api />} />
+            <Route path="/contact" element={userInfo.userId ? <AfterContact /> : <Contact />} />
+            <Route path="/afteruiplan" element={<AfterUiPlan />} />
+
+
+            {/* Auth Pages */}
+            <Route path="/sign-in" element={<SignIn />} />
+            <Route path="/sign-up" element={<SignUp />} />
+            <Route path="/SignupOtp" element={<SignupOtp />} />
+
+            {/* Forget Password Flow */}
+            {/* <Route path="/forgetpg" element={<ForgetPg />} /> */}
+            <Route path="/heroforgetpg" element={<HeroForgetPg />} />
+            <Route path="/otp" element={<Otp />} />
+            <Route path="/resetpassword" element={<ResetPassword />} />
+            <Route path="/resetpopup" element={<ResetPopup />} />
+            <Route path="/SignUpPopUp" element={<SignUpPopUp />} />
+
+            {/* After Payment Pages */}
+            <Route path="/afterbilling" element={<AfterBilling />} />
+          
+            <Route path="/afterpay" element={<AfterPay />} />
+            <Route path="/afterpayment" element={<AfterPayment />} />
+            <Route path="/cancel" element={<Cancel />} />
+            <Route path="/afterpaymentprocessing" element={<AfterPaymentProcessing />} />
+
+            <Route path="/afterconformationpage" element={<AfterConformationPage />} />
+            <Route path="/afterconformationpage1" element={<AfterConformationPage1 />} />
+            <Route path="/afterheropricing" element={<AfterHeroPricing />} />
+
+
+            {/* Profile Pages */}
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/heroprofile" element={<HeroProfile />} />
+            <Route path="/myplan" element={<Myplan />} />
+            <Route path="/mybilling" element={<Mybilling />} />
+            <Route path="/helpcenter" element={<HelpCenter />} />
+
+            {/* Design Form Pages */}
+            <Route path="/form" element={<Form />} />
+            <Route path="/formafter" element={<FormAfter />} />
+            <Route path="/exteriorform" element={<ExteriorForm />} />
+            <Route path="/outdoorform" element={<OutdoorForm />} />
+            <Route path="/ImageGeneration" element={<ImageGeneration />}/>
+            <Route path="/auth-callback" element={<AuthCallback setUserInfo={setUserInfo} />} />
+            
+            <Route path="/explore" element={<AfterCreditStats />} />
+            <Route path="/explore/:roomType" element={<LivingRoom />} />
+          
+            {/* Catch-all fallback for debugging */}
+            <Route path="*" element={<div>404 - Page Not Found</div>} />
+            
+          </Routes>
+
+          <Footer />
+        </div>
+      )}
+    </>
   );
 }

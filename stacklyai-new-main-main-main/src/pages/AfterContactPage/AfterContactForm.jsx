@@ -5,7 +5,7 @@ import ellipse1 from "../../assets/contactus/Ellipse2.png";
 import AfterContactForm from "../ContactPg/ContactForm";
 import Bg from "../../assets/contactus/CnBg.png";
 import handShake from "../../assets/contactus/handShake.png";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 
 const AfterContactForm1 = () => {
   const [formData, setFormData] = useState({
@@ -36,7 +36,7 @@ const AfterContactForm1 = () => {
     setSubmitError(null);
 
     try {
-      await axios.post("https://www.stacklycloud.com/api/contact", {
+      await axios.post("http://localhost:8000/contact", {
         ...formData,
         source: "contact_us",
       });
@@ -230,7 +230,7 @@ const AfterContactForm1 = () => {
           we'll be in touch shortly.
         </p>
       </div>
-      <ToastContainer />
+      
     </div>
   );
 };

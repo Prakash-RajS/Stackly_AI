@@ -7,7 +7,6 @@ import logoImg from "/src/assets/Logo.png";
 import BgImage from "../../assets/forgetPg/ForgotPassword.png";
 import BgImageMobile from "../../assets/forgetPg/ForgotPasswordMobile.png";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState('');

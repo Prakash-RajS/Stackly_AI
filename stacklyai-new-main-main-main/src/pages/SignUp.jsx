@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
 import logoImg from "../assets/Logo1.png";
 import signBg from "../assets/signBg.png";
 import mobileBg from "../assets/LoginMobileBg.png";
@@ -114,19 +113,6 @@ export default function SignUp({ setUser }) {
         backgroundImage: `url(${isMobile ? mobileBg : signBg})`,
       }}
     >
-
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-      />
 
       {/* Main Card */}
    <div
