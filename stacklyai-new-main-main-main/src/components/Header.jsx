@@ -104,14 +104,14 @@ useEffect(() => {
   return (
     <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8">
       <header
-        className="w-full max-w-[1348px] flex flex-wrap justify-between items-center gap-2 md:gap-6 lg:gap-[60px] xl:gap-[115px] rounded-[90px] shadow-sm bg-[rgba(255,255,255,0.12)] backdrop-blur-[8px] relative z-10 mx-auto px-2 sm:px-4 md:px-8 lg:px-10 xl:px-12 py-2 md:py-0"
-        style={{
-          top: "32px",
-          position: "relative",
-          minHeight: "64px",
-          height: "auto",
-        }}
-      >
+  className="w-full max-w-[1348px] flex flex-wrap justify-between items-center gap-2 md:gap-6 lg:gap-[60px] xl:gap-[115px] rounded-[90px] shadow-sm bg-[rgba(255,255,255,0.12)] backdrop-blur-[8px] relative z-10 mx-auto px-2 sm:px-4 md:px-8 lg:px-10 xl:px-12 py-2 md:py-0"
+  style={{
+    top: location.pathname === "/contact" ? "16px" : "32px", // ← MOVE UP ON CONTACT PAGE
+    position: "relative",
+    minHeight: "64px",
+    height: "auto",
+  }}
+>
         {/* Logo */}
        <img
   src={logoImg}
