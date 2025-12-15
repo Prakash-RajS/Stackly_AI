@@ -16,7 +16,7 @@ import sec14Img4 from "../../assets/home/sec14/m2.jpg";
 import sec14Img5 from "../../assets/home/sec14/m3.jpg";
 import AfterApiFaq from "./AfterApiFaq";
 import keyImage from "../../assets/api/key.png";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import BG1 from "../../assets/afterHome/APIAfterLogin.png";
 import BG2 from "../../assets/afterHome/APIAfterLogin2.png";
@@ -25,9 +25,9 @@ import card from "../../assets/afterHome/ApiCard.png";
 import Group2 from "../../assets/afterHome/Group2.png";
 import ApiVector from "../../assets/afterHome/ApiVector.png";
 
-
-
 export default function AfterHeroApi() {
+  const location = useLocation();
+
   const faqs = [
     {
       question: "How do I get started with StacklyAI APIs?",
@@ -45,7 +45,7 @@ export default function AfterHeroApi() {
         "Stackly AI offers both free and premium plans. The free plan includes essential features, while premium plans unlock advanced capabilities and integrations.",
     },
     {
-      question: " What image formats do StacklyAI APIs support?",
+      question: "What image formats do StacklyAI APIs support?",
       answer:
         "You can reach out to Stackly AI through our support page, via email at support@stackly.ai, or use the chat feature on our website for instant assistance.",
     },
@@ -60,106 +60,131 @@ export default function AfterHeroApi() {
         "You can reach out to Stackly AI through our support page, via email at support@stackly.ai, or use the chat feature on our website for instant assistance.",
     },
   ];
-  const [loading, setLoading] = useState(false);
-  const toastStyle = {
-  background: "linear-gradient(95.92deg, rgba(138,56,245,0.5) 15.32%, rgba(194,44,162,0.5) 99.87%)",
-  color: "#ffffff",
-  border: "1px solid rgba(194,44,162,0.6)",
-  borderRadius: "12px",
-  fontFamily: "'Poppins', sans-serif",
-  fontWeight: 500,
-  fontSize: "15px",
-};
-  const [formData, setFormData] = useState({
-    full_name: "",
-    email: "",
-    contact_number: "",
-    company_name: "",
-    address: "",
-    message: "",
-  });
 
-  
-   const handleChange = (e) => {
+  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+const validateEmail = (email) => {
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+  if (!email) {
+    setEmailError("Email is required.");
+  } else if (!emailRegex.test(email)) {
+    setEmailError("Please enter a valid Gmail address (e.g., yourname@gmail.com).");
+  } else {
+    setEmailError("");
+  }
+};
+
+
+  const toastStyle = {
+    background:
+      "linear-gradient(95.92deg, rgba(138,56,245,0.5) 15.32%, rgba(194,44,162,0.5) 99.87%)",
+    color: "#ffffff",
+    border: "1px solid rgba(194,44,162,0.6)",
+    borderRadius: "12px",
+    fontFamily: "'Poppins', sans-serif",
+    fontWeight: 500,
+    fontSize: "15px",
+  };
+
+ const [errors, setErrors] = useState({});
+const [formData, setFormData] = useState({
+  full_name: "",
+  email: "",
+  contact_number: "",
+  company_name: "",
+  address: "",
+  message: "",
+  country_code: "+91", // ✅ Add this
+});
+
+
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-   const handleSubmit = async (e) => {
-  e.preventDefault();
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("token");
 
-  const userId = localStorage.getItem("userId");
-  const token = localStorage.getItem("token");
-
-  if (!userId || !token) {
-    toast.error("🔐 You need to login first!", { 
-      style: toastStyle,
-      autoClose: 2000,
-    });
-    return;
-  }
-
-  if (!formData.full_name || !formData.email || !formData.company_name) {
-    toast.warning("Please fill all required fields.", { 
-      style: toastStyle,
-      autoClose: 2000,
-    });
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    await axios.post(
-      "https://www.stacklycloud.com/api/submit-api-access",
-      { user_id: parseInt(userId), ...formData },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    toast.success("✅ Thank you for your request! Our team will contact you.", {
-      style: toastStyle,
-      autoClose: 3000,
-    });
-
-    setFormData({
-      full_name: "",
-      email: "",
-      contact_number: "",
-      company_name: "",
-      address: "",
-      message: "",
-    });
-
-  } catch (err) {
-    console.error("Error submitting form:", err);
-    toast.error("❌ Submission failed. Please try again.", {
-      style: toastStyle,
-      autoClose: 2000,
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-    
-  
-  useEffect(() => {
-  if (!location.hash) return;
-
-  const element = document.querySelector(location.hash);
-  if (element) {
-    // Wait for next paint frame (DOM is ready)
-    requestAnimationFrame(() => {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-        inline: "nearest",
+    if (!userId || !token) {
+      toast.error("🔐 You need to login first!", {
+        style: toastStyle,
+        autoClose: 2000,
       });
-    });
-  }
-}, [location]);
-  
+      return;
+    }
+
+    // ✅ Gmail-only validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.warning("Please enter a valid Gmail address (e.g., yourname@gmail.com)", {
+        style: toastStyle,
+        autoClose: 2500,
+      });
+      return;
+    }
+
+    if (!formData.full_name || !formData.email || !formData.company_name) {
+      toast.warning("⚠️ Please fill all required fields.", {
+        style: toastStyle,
+        autoClose: 2000,
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await axios.post(
+        "https://www.ai.stacklycloud.com/api/submit-api-access",
+        { user_id: parseInt(userId), ...formData },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("✅ Thank you! Our team will contact you soon.", {
+        style: toastStyle,
+        autoClose: 3000,
+      });
+
+      // ✅ Reset form only after success
+      setFormData({
+        full_name: "",
+        email: "",
+        contact_number: "",
+        company_name: "",
+        address: "",
+        message: "",
+        
+      });
+    } catch (err) {
+      console.error("Error submitting form:", err);
+      toast.error("❌ Submission failed. Please try again.", {
+        style: toastStyle,
+        autoClose: 2000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const element = document.querySelector(location.hash);
+    if (element) {
+      requestAnimationFrame(() => {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+      });
+    }
+  }, [location]);
+
   return (
     <div>
       {/* section1 */}
@@ -372,16 +397,24 @@ export default function AfterHeroApi() {
             />
           </div>
           <div className="flex-1">
-            <label className="block text-sm mb-1 text-white">Email ID*</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              className="w-full p-3 rounded-xl border-[1px] border-[#FFFFFF33] bg-white/10 text-white placeholder-white/50 focus:outline-none"
-            />
-          </div>
+  <label className="block text-sm mb-1 text-white">Email ID*</label>
+  <input
+    type="email"
+    name="email"
+    value={formData.email}
+    onChange={(e) => {
+      handleChange(e);
+      validateEmail(e.target.value); // 👈 real-time validation
+    }}
+    placeholder="you@example.com"
+    className={`w-full p-3 rounded-xl border-[1px] bg-white/10 text-white placeholder-white/50 focus:outline-none
+      ${emailError ? "border-red-500" : "border-[#FFFFFF33]"}`}
+  />
+  {emailError && (
+    <p className="text-red-400 text-sm mt-1">{emailError}</p>
+  )}
+</div>
+
         </div>
 
         {/* Second row: Company & Phone */}
@@ -397,17 +430,116 @@ export default function AfterHeroApi() {
               className="w-full p-3 rounded-xl border-[1px] border-[#FFFFFF33] bg-white/10 text-white placeholder-white/50 focus:outline-none"
             />
           </div>
-          <div className="flex-1">
-            <label className="block text-sm mb-1 text-white">Phone Number</label>
-            <input
-              type="tel"
-              name="contact_number"
-              value={formData.contact_number}
-              onChange={handleChange}
-              placeholder="+91 99999 99999"
-              className="w-full p-3 rounded-xl border-[1px] border-[#FFFFFF33] bg-white/10 text-white placeholder-white/50 focus:outline-none"
-            />
-          </div>
+<div className="flex-1 relative">
+  <label className="block text-sm mb-1 text-white">Phone Number</label>
+
+  <div className="relative flex items-center">
+    {/* Country code inside input */}
+    <div className="absolute left-3 z-10">
+      <div className="relative">
+        <select
+          value={formData.country_code || "+91"}
+          onChange={(e) => {
+            const newCode = e.target.value;
+            setFormData({
+              ...formData,
+              country_code: newCode,
+              contact_number: "",
+            });
+          }}
+          className="bg-[#0B0B0B] text-white text-sm pr-6 pl-2 py-[6px]
+                     rounded-lg border border-[#FFFFFF33] outline-none cursor-pointer 
+                     focus:ring-1 focus:ring-[#8A38F5] focus:border-[#8A38F5] transition-all"
+          style={{
+            WebkitAppearance: "none",
+            MozAppearance: "none",
+            appearance: "none",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 8px center",
+            backgroundSize: "12px",
+            paddingRight: "28px",
+            paddingLeft: "8px",
+          }}
+        >
+          <option value="+91" className="bg-[#0B0B0B] text-white py-2">+91</option>
+          <option value="+1" className="bg-[#0B0B0B] text-white py-2">+1</option>
+          <option value="+44" className="bg-[#0B0B0B] text-white py-2">+44</option>
+          <option value="+61" className="bg-[#0B0B0B] text-white py-2">+61</option>
+          <option value="+81" className="bg-[#0B0B0B] text-white py-2">+81</option>
+          <option value="+49" className="bg-[#0B0B0B] text-white py-2">+49</option>
+          <option value="+33" className="bg-[#0B0B0B] text-white py-2">+33</option>
+          <option value="+86" className="bg-[#0B0B0B] text-white py-2">+86</option>
+          <option value="+7" className="bg-[#0B0B0B] text-white py-2">+7</option>
+          <option value="+55" className="bg-[#0B0B0B] text-white py-2">+55</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Phone number input */}
+    <input
+      type="tel"
+      name="contact_number"
+      value={formData.contact_number}
+      onChange={(e) => {
+        const countryRules = {
+          "+91": 10, // India
+          "+1": 10,  // USA
+          "+44": 10, // UK
+          "+61": 9,  // Australia
+          "+81": 10, // Japan
+          "+49": 11, // Germany
+          "+33": 9,  // France
+          "+86": 11, // China
+          "+7": 10,  // Russia
+          "+55": 11, // Brazil
+        };
+
+        const maxLen = countryRules[formData.country_code] || 10;
+        const value = e.target.value.replace(/[^0-9]/g, "").slice(0, maxLen);
+        setFormData({ ...formData, contact_number: value });
+
+        if (value.length > 0 && value.length < maxLen) {
+          setErrors({
+            ...errors,
+            contact_number: `Enter a valid ${maxLen}-digit number`,
+          });
+        } else {
+          setErrors({ ...errors, contact_number: "" });
+        }
+      }}
+      placeholder="9999999999"
+      inputMode="numeric"
+      autoComplete="tel"
+      className={`w-full p-3 pl-[85px] rounded-xl border-[1px] ${
+        formData.contact_number &&
+        formData.contact_number.length <
+          ({
+            "+91": 10,
+            "+1": 10,
+            "+44": 10,
+            "+61": 9,
+            "+81": 10,
+            "+49": 11,
+            "+33": 9,
+            "+86": 11,
+            "+7": 10,
+            "+55": 11,
+          }[formData.country_code] || 10)
+          ? "border-[#FF0000]"
+          : "border-[#FFFFFF33]"
+      } bg-white/10 text-white placeholder-white/50 focus:outline-none focus:border-[#8A38F5] focus:ring-1 focus:ring-[#8A38F5] transition-all`}
+    />
+  </div>
+
+  {/* Error message */}
+  {formData.contact_number && errors.contact_number && (
+    <p className="text-red-400 text-xs mt-1">
+      {errors.contact_number}
+    </p>
+  )}
+</div>
+
         </div>
 
         {/* Address */}
@@ -484,8 +616,6 @@ export default function AfterHeroApi() {
     </p>
   </div>
 </div>
-
-     
-    </div>
+ </div>
   );
 }

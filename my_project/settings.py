@@ -93,12 +93,26 @@ WSGI_APPLICATION = 'my_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': '/home/ubuntu/db_data/db.sqlite3',
+#    }
+#}
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'stackly_db',
+        'USER': 'admin',
+        'PASSWORD': 'StacklyDB2025',
+        'HOST': 'stackly-ai-db.c81ekqieoxbm.us-east-1.rds.amazonaws.com',  # from RDS or your setup
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+        }
     }
 }
+
 
 
 # Password validation
@@ -387,8 +401,15 @@ ASGI_APPLICATION = 'my_project.asgi.application'
 # Database (configure for production)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'stackly_db',
+        'USER': 'admin',
+        'PASSWORD': 'StacklyDB2025',
+        'HOST': 'stackly-ai-db.c81ekqieoxbm.us-east-1.rds.amazonaws.com',  # from RDS or your setup
+        'PORT': '3306',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+        }
     }
 }
 

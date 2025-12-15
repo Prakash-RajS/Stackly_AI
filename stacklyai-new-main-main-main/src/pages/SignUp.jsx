@@ -1,6 +1,7 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import logoImg from "../assets/Logo1.png";
 import signBg from "../assets/signBg.png";
 import mobileBg from "../assets/LoginMobileBg.png";
@@ -8,16 +9,21 @@ import LeftArrow from "../assets/LeftArrow.png";
 
 export default function SignUp({ setUser }) {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 639);
+  
+  // Track if user has started typing in password field
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
-
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 639);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 639);
@@ -25,9 +31,42 @@ export default function SignUp({ setUser }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Email validation regex
+  // ✅ Regex patterns
   const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+\-={}[\]|:;"'<>,./?~`]).{8,}$/;
 
+  // ✅ Handle live email validation
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (value && !emailRegex.test(value)) {
+      setEmailError("Please enter a valid Gmail address (example@gmail.com)");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  // ✅ Handle live password validation
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    
+    // Mark as touched when user starts typing
+    if (value && !passwordTouched) {
+      setPasswordTouched(true);
+    }
+
+    if (value && !passwordRegex.test(value)) {
+      setPasswordError(
+        "Use 8+ chars with upper, lower, number & symbol."
+      );
+    } else {
+      setPasswordError("");
+    }
+  };
+
+  // ✅ Auto login redirect if URL has params
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const token = queryParams.get("token");
@@ -42,34 +81,37 @@ export default function SignUp({ setUser }) {
     }
   }, [location.search, navigate, setUser]);
 
+  // ✅ Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    // Validate email format
+    // Final email validation
     if (!emailRegex.test(email)) {
       toast.error("Please enter a valid Gmail address");
       setIsLoading(false);
       return;
     }
 
-    // Validate password match
+    // Final password validation
+    if (!passwordRegex.test(password)) {
+      toast.error(
+        "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character."
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    // Confirm password match
     if (password !== confirmPassword) {
       toast.error("Passwords don't match!");
       setIsLoading(false);
       return;
     }
 
-    // Validate password strength (optional)
-    if (password.length < 6) {
-      toast.error("Password should be at least 6 characters long");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const res = await fetch("https://www.stacklycloud.com/api/signup", {
+      const res = await fetch("https://www.ai.stacklycloud.com/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,7 +131,7 @@ export default function SignUp({ setUser }) {
         return;
       }
 
-      // Store email and password temporarily in localStorage
+      // Store email and password temporarily
       localStorage.setItem("signupEmail", email);
       localStorage.setItem("signupPassword", password);
 
@@ -97,7 +139,6 @@ export default function SignUp({ setUser }) {
       setTimeout(() => {
         navigate("/SignupOtp", { state: { email, password } });
       }, 1500);
-
     } catch (err) {
       const errorMsg = "Failed to connect to server";
       setError(errorMsg);
@@ -113,6 +154,19 @@ export default function SignUp({ setUser }) {
         backgroundImage: `url(${isMobile ? mobileBg : signBg})`,
       }}
     >
+
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
 
       {/* Main Card */}
    <div
@@ -222,152 +276,162 @@ export default function SignUp({ setUser }) {
 
          <form
   className="w-full max-w-[558px] max-[1280px]:w-full min-h-[44px] 
-             flex flex-col gap-5 max-[1280px]:gap-4 items-center justify-center
+             flex flex-col gap-6 max-[1280px]:gap-4 items-center justify-center
              [@media(min-width:1281px)]:mt-[210px]"  // 👈 moves down only >1281px
   onSubmit={handleSubmit}
 >
 
-            {/* Email */}
-            <div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
-              <label className="w-full h-[24px] text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
-                Email
-              </label>
-              <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
-                <input
-                  type="email"
-                  placeholder="example@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-[530px] max-[1280px]:w-full h-[24px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
-                  required
-                />
-              </div>
-            </div>
+           {/* Email */}
+<div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
+  <label className="w-full h-[24px] text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
+    Email
+  </label>
+  <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
+    <input
+      type="email"
+      placeholder="example@gmail.com"
+      value={email}
+      onChange={handleEmailChange}
+      className="w-[530px] max-[1280px]:w-full h-[48px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
+      required
+    />
+  </div>
+  {emailError && (
+    <p className="text-red-400 text-[13px] max-[640px]:text-[11px] font-['Poppins'] mt-1 leading-tight">
+      {emailError}
+    </p>
+  )}
+</div>
 
-            {/* Password */}
-            <div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
-              <label className="w-full h-[24px] text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
-                Password
-              </label>
-              <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="******"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-[500px] max-[1280px]:w-full h-[24px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
-                  required
-                />
-                <span
-                  className="cursor-pointer"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                                      {showPassword ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                          />
-                        </svg>
-                      )}
-                </span>
-              </div>
-            </div>
+{/* Password */}
+<div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
+  <label className="w-full h-[24px]  text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
+    Password
+  </label>
+  <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
+    <input
+      type={showPassword ? "text" : "password"}
+      placeholder="******"
+      value={password}
+      onChange={handlePasswordChange}
+      className="w-[500px] max-[1280px]:w-full h-[48px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
+      required
+    />
+    <span
+      className="cursor-pointer"
+      onClick={() => setShowPassword(!showPassword)}
+    >
+      {showPassword ? (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+          />
+        </svg>
+      )}
+    </span>
+  </div>
+  {/* password error */}
+  {passwordError && passwordTouched && (
+    <p className="text-red-400 text-[13px] max-[640px]:text-[11px] font-['Poppins'] mt-1 leading-tight">
+      {passwordError}
+    </p>
+  )}
+</div>
 
-            {/* Confirm Password */}
-            <div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
-              <label className="w-full h-[24px] text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
-                Confirm Password
-              </label>
-              <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="******"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-[500px] max-[1280px]:w-full h-[24px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
-                  required
-                />
-                <span
-                  className="cursor-pointer"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                       {showConfirmPassword ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                          />
-                        </svg>
-                      )}
-                </span>
-              </div>
-            </div>
-
+{/* Confirm Password */}
+<div className="w-[554px] max-[1280px]:w-full h-[84px] max-[1280px]:h-auto flex flex-col gap-[8px] max-[1280px]:gap-[6px] opacity-100">
+  <label className="w-full h-[24px] text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins']">
+    Confirm Password
+  </label>
+  <div className="w-[554px] max-[1280px]:w-full h-[48px] max-[1280px]:h-[40px] flex items-center px-[12px] max-[1280px]:px-[10px] gap-[10px] max-[1280px]:gap-[8px] rounded-[12px] border-[1px] border-solid border-[#FFFFFF33] bg-[#FFFFFF1F] opacity-100">
+    <input
+      type={showConfirmPassword ? "text" : "password"}
+      placeholder="******"
+      value={confirmPassword}
+      onChange={(e) => setConfirmPassword(e.target.value)}
+      className="w-[500px] max-[1280px]:w-full h-[24px] text-[#E0E0E0] text-[16px] max-[1280px]:text-[14px] font-normal leading-[100%] font-['Poppins'] outline-none border-none bg-transparent"
+      required
+    />
+    <span
+      className="cursor-pointer"
+      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+    >
+      {showConfirmPassword ? (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+          />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-6 max-[1280px]:w-5 h-6 max-[1280px]:h-5 text-white hover:text-purple-300 transition-colors duration-300"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+          />
+        </svg>
+      )}
+    </span>
+  </div>
+</div>
             {/* Remember Me */}
             <div className="w-[554px] max-[1280px]:w-full h-[24px] flex items-center">
-              <div className="flex items-center gap-2 whitespace-nowrap">
+              {/* <div className="flex items-center gap-2 whitespace-nowrap">
                 <input type="checkbox" className="w-4 max-[1280px]:w-3.5 h-4 max-[1280px]:h-3.5" />
                 <span className="text-white text-[16px] max-[1280px]:text-[14px] font-normal leading-none font-['Poppins']">
                   Remember me
                 </span>
-              </div>
+              </div> */}
             </div>
 
             {/* Submit */}
@@ -402,7 +466,7 @@ export default function SignUp({ setUser }) {
              [@media(min-width:1281px)]:mt-[350px]"
 >
 
-              <a href="https://www.stacklycloud.com/api/login/google">
+              <a href="https://www.ai.stacklycloud.com/api/login/google">
                 <button
                   className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                 >
@@ -444,7 +508,7 @@ export default function SignUp({ setUser }) {
                   </svg>
                 </button>
               </a>
-              <a href="https://www.stacklycloud.com/api/login/apple">
+              <a href="https://www.ai.stacklycloud.com/api/login/apple">
                 <button
                   className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                 >
@@ -463,7 +527,7 @@ export default function SignUp({ setUser }) {
                   </svg>
                 </button>
               </a>
-              <a href="https://www.stacklycloud.com/api/login/facebook">
+              <a href="https://www.ai.stacklycloud.com/api/login/facebook">
                 <button
                   className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                 >

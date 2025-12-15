@@ -1168,8 +1168,8 @@ def clear_notifications(request):
 
     return JsonResponse({'success': True, 'updated': updated_count, 'unread_count':unread_count})
 
-@login_required
-@csrf_exempt  # Use only if you're not sending CSRF token in AJAX
+@csrf_exempt
+@login_required 
 def mark_all_read(request):
     if request.method == 'POST':
         # Mark user notifications as read

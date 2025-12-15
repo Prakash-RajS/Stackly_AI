@@ -188,27 +188,33 @@ const SilverPlan = () => (
       </div>
     ))}
   <button
-    className="flex gap-2 max-[1024px]:gap-1 max-[370px]:gap-1 items-center cursor-pointer text-white"
-    onClick={toggleSilverMore}
+  className="flex gap-2 max-[1024px]:gap-1 max-[370px]:gap-1 items-center cursor-pointer text-white"
+  onClick={toggleSilverMore}
+>
+  <svg
+    width="10"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`w-3 max-[1024px]:w-2 max-[370px]:w-1.5 h-4 max-[1024px]:h-3 max-[370px]:h-2 transition-transform duration-300 ${
+      showSilverMore ? "rotate-180" : ""
+    }`}
   >
-    <svg
-      width="10"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`w-3 max-[1024px]:w-2 max-[370px]:w-1.5 h-4 max-[1024px]:h-3 max-[370px]:h-2 transition-transform ${showSilverMore ? "rotate-90" : ""}`}
-    >
-      <path
-        d="M8 5L15 12L8 19"
-        stroke="#8A38F5"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-    <span className="text-sm max-[1024px]:text-xs max-[370px]:text-[10px] font-medium">{showSilverMore ? "Show less" : "See 4 more"}</span>
-  </button>
+    {/* ↓ Down arrow (rotates ↑ when active) */}
+    <path
+      d="M6 9L12 15L18 9"
+      stroke="#8A38F5"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+
+  <span className="text-sm max-[1024px]:text-xs max-[370px]:text-[10px] font-medium">
+    {showSilverMore ? "Show less" : "See 4 more"}
+  </span>
+</button>
 </div>
 
 
@@ -303,27 +309,33 @@ const GoldPlan = () => (
       </div>
     ))}
   <button
-    className="flex gap-2 max-[1024px]:gap-1 max-[370px]:gap-1 items-center cursor-pointer text-white"
-    onClick={toggleGoldMore}
+  className="flex gap-2 max-[1024px]:gap-1 max-[370px]:gap-1 items-center cursor-pointer text-white"
+  onClick={toggleGoldMore}
+>
+  <svg
+    width="10"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`w-3 max-[1024px]:w-2 max-[370px]:w-1.5 h-4 max-[1024px]:h-3 max-[370px]:h-2 transition-transform duration-300 ${
+      showGoldMore ? "rotate-180" : ""
+    }`}
   >
-    <svg
-      width="10"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`w-3 max-[1024px]:w-2 max-[370px]:w-1.5 h-4 max-[1024px]:h-3 max-[370px]:h-2 transition-transform ${showGoldMore ? "rotate-90" : ""}`}
-    >
-      <path
-        d="M8 5L15 12L8 19"
-        stroke="#8A38F5"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-    <span className="text-sm max-[1024px]:text-xs max-[370px]:text-[10px] font-medium">{showGoldMore ? "Show less" : "See 4 more"}</span>
-  </button>
+    {/* ↓ Down arrow (rotates upward on click) */}
+    <path
+      d="M6 9L12 15L18 9"
+      stroke="#8A38F5"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+
+  <span className="text-sm max-[1024px]:text-xs max-[370px]:text-[10px] font-medium">
+    {showGoldMore ? "Show less" : "See 4 more"}
+  </span>
+</button>
 </div>
 
 

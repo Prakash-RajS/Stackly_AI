@@ -31,18 +31,24 @@ load_dotenv()
 app = FastAPI()
 BASE_DIR = Path(__file__).parent.parent  # Goes up one level from fastapi_app/
 
-# Define paths
+# Import storage functions
+from fastapi_app.storage import (
+    get_upload_path, get_generated_path, save_file, save_bytes_file,
+    remove_file, get_file_url, read_file_bytes, USE_S3, S3_CLIENT, S3_BUCKET
+)
+
+# Define paths for local storage (fallback)
 uploads_path = BASE_DIR / "fastapi_app" / "uploads"
 generated_path = BASE_DIR / "fastapi_app" / "generated"
 
-# Create folders if they don't exist
+# Create folders if they don't exist (for local storage fallback)
 uploads_path.mkdir(parents=True, exist_ok=True)
 generated_path.mkdir(parents=True, exist_ok=True)
 
-# Mount static files
-app.mount("/static_uploads", StaticFiles(directory=uploads_path), name="static_uploads")
-app.mount("/static_generated", StaticFiles(directory=generated_path), name="static_generated")
-
+# Mount static files only if not using S3
+if not USE_S3:
+    app.mount("/static_uploads", StaticFiles(directory=uploads_path), name="static_uploads")
+    app.mount("/static_generated", StaticFiles(directory=generated_path), name="static_generated")
 
 router = APIRouter()
 app.include_router(router)
@@ -53,13 +59,10 @@ if not STABILITY_API_KEY:
 
 STABILITY_API_URL = "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image"
 
-#https://api.stability.ai/v1/generation/esrgan-v1-x2plus/image-to-image/upscale for 4k
-
 HEADERS = {
     "Accept": "application/json",
     "Authorization": f"Bearer {STABILITY_API_KEY}",
 }
-        
 
 class RoomType(str, Enum):
     LIVING_ROOM = "living room"
@@ -92,10 +95,7 @@ class AIStylingStrength(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
-
-
 # Style configurations for interior
-
 STYLE_CONFIGS = {
     "classic": {
         "prompt": "Elegant {room_type} with traditional furniture, ornate details, rich fabrics, warm lighting, {style} aesthetic. High-quality materials, symmetrical composition, timeless elegance, sophisticated ambiance, professional interior photography",
@@ -162,70 +162,80 @@ ALLOWED_DIMENSIONS = [
 
 executor = ThreadPoolExecutor(max_workers=8)
 
-def add_watermark_to_image(image_path: str, watermark_text="Stackly.AI") -> None:
-    """Add bottom-right watermark and a neatly centered horizontal watermark using same font size."""
-    with Image.open(image_path).convert("RGBA") as base:
-        width, height = base.size
-
-        # Create transparent watermark layer
-        watermark = Image.new("RGBA", base.size, (255, 255, 255, 0))
-        draw = ImageDraw.Draw(watermark)
-
-        # Shared font setup
-        font_size = max(15, width // 40)
-        try:
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except IOError:
-            font = ImageFont.load_default()
-
-        # --- Bottom-right watermark ---
-        bbox = draw.textbbox((0, 0), watermark_text, font=font)
-        textwidth = bbox[2] - bbox[0]
-        textheight = bbox[3] - bbox[1]
-        x1 = width - textwidth - 10
-        y1 = height - textheight - 20
-
-        draw.text((x1 + 1, y1 + 1), watermark_text, fill=(0, 0, 0, 120), font=font)  # Shadow
-        draw.text((x1, y1), watermark_text, fill=(255, 255, 255, 200), font=font)    # Main
-
-        # --- Center repeated watermark ---
-        space_width = draw.textlength(" ", font=font)
-        word_width = draw.textlength(watermark_text, font=font)
-        total_word_width = word_width + space_width
-
-        repeat_count = math.ceil(width / total_word_width) + 2  # Ensure overflow to clip evenly
-        repeated_text = (watermark_text + " ") * repeat_count
-
-        center_y = (height - textheight) // 2
-
-        draw.text((2, center_y + 2), repeated_text, fill=(0, 0, 0, 120), font=font)   # Shadow
-        draw.text((0, center_y), repeated_text, fill=(255, 255, 255, 160), font=font)  # Main
-
-        # Merge layers and save
-        final = Image.alpha_composite(base, watermark)
-        final.convert("RGB").save(image_path, "PNG")
-
-async def resize_to_allowed_dimensions(image_path: str):
+def add_watermark_to_image(image_bytes: bytes, watermark_text="Stackly.AI") -> bytes:
+    """Add watermarks to image bytes and return watermarked bytes"""
     try:
-        with Image.open(image_path) as img:
-            img = img.convert("RGB")  # Fix image mode issues
-            original_width, original_height = img.size
-            original_aspect = original_width / original_height
+        with Image.open(io.BytesIO(image_bytes)).convert("RGBA") as base:
+            width, height = base.size
 
-            # Find best match from allowed dimensions based on aspect ratio difference
-            closest_dim = min(
-                ALLOWED_DIMENSIONS,
-                key=lambda dim: abs((dim[0] / dim[1]) - original_aspect)
-            )
-            resized_img = img.resize(closest_dim, Image.LANCZOS)
-            img_bytes = io.BytesIO()
-            resized_img.save(img_bytes, format="PNG", optimize=True, quality=90)
-            return img_bytes.getvalue(), closest_dim
+            # Create transparent watermark layer
+            watermark = Image.new("RGBA", base.size, (255, 255, 255, 0))
+            draw = ImageDraw.Draw(watermark)
+
+            # Shared font setup
+            font_size = max(15, width // 40)
+            try:
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except IOError:
+                font = ImageFont.load_default()
+
+            # --- Bottom-right watermark ---
+            bbox = draw.textbbox((0, 0), watermark_text, font=font)
+            textwidth = bbox[2] - bbox[0]
+            textheight = bbox[3] - bbox[1]
+            x1 = width - textwidth - 10
+            y1 = height - textheight - 20
+
+            draw.text((x1 + 1, y1 + 1), watermark_text, fill=(0, 0, 0, 120), font=font)  # Shadow
+            draw.text((x1, y1), watermark_text, fill=(255, 255, 255, 200), font=font)    # Main
+
+            # --- Center repeated watermark ---
+            space_width = draw.textlength(" ", font=font)
+            word_width = draw.textlength(watermark_text, font=font)
+            total_word_width = word_width + space_width
+
+            repeat_count = math.ceil(width / total_word_width) + 2
+            repeated_text = (watermark_text + " ") * repeat_count
+
+            center_y = (height - textheight) // 2
+
+            draw.text((2, center_y + 2), repeated_text, fill=(0, 0, 0, 120), font=font)   # Shadow
+            draw.text((0, center_y), repeated_text, fill=(255, 255, 255, 160), font=font)  # Main
+
+            # Merge layers and return bytes
+            final = Image.alpha_composite(base, watermark)
+            output_bytes = io.BytesIO()
+            final.convert("RGB").save(output_bytes, format="PNG", quality=95)
+            return output_bytes.getvalue()
+            
+    except Exception as e:
+        logging.error(f"Watermarking failed: {str(e)}")
+        return image_bytes  # Return original if watermarking fails
+
+async def resize_to_allowed_dimensions(image_bytes: bytes):
+    """Resize image to allowed dimensions for Stability AI"""
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img = img.convert("RGB")
+
+        original_width, original_height = img.size
+        original_aspect = original_width / original_height
+
+        closest_dim = min(
+            ALLOWED_DIMENSIONS,
+            key=lambda dim: abs((dim[0] / dim[1]) - original_aspect)
+        )
+
+        resized_img = img.resize(closest_dim, Image.LANCZOS)
+
+        output = io.BytesIO()
+        resized_img.save(output, format="PNG", optimize=True, quality=90)
+
+        return output.getvalue(), closest_dim
+
     except UnidentifiedImageError:
         raise HTTPException(400, detail="Invalid or unsupported image format.")
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise HTTPException(500, detail=f"Internal error: {str(e)}")
 
 async def generate_design_variation(
@@ -241,7 +251,6 @@ async def generate_design_variation(
             
             prompt = style_config["prompt"].format(
                 room_type=design_config["room_type"],
-                # building_type=design_config["building_type"],
                 style=design_config["style"]
             )
             
@@ -294,10 +303,8 @@ async def generate_design_variation(
 
     return await _generate()
 
-
-
 @router.post("/generate-interior-design/")
-async def generate_design(
+async def generate_interior_design(
     user_id: str = Form(...),
     image: UploadFile = File(...),
     room_type: str = Form(...),
@@ -305,21 +312,21 @@ async def generate_design(
     ai_strength: str = Form("medium"),
     num_designs: int = Form(1, ge=1, le=6)
 ):
+    from django.utils import timezone
+    from datetime import date
+    from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
+
     try:
-        # Move these imports to the top level of your file instead of inside the function
-        from django.utils import timezone
-        from datetime import date
-        from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
-
-        uploads_path.mkdir(parents=True, exist_ok=True)
-        generated_path.mkdir(parents=True, exist_ok=True)
-
         # Step 1: User & Subscription
         try:
             user = await sync_to_async(UserData.objects.get)(id=user_id)
-            subscription = await sync_to_async(UserSubscription.objects.filter(user=user).first)()
+            subscription = await sync_to_async(
+                UserSubscription.objects.filter(user=user).first
+            )()
+
             if not subscription:
                 raise HTTPException(status_code=404, detail="Subscription not found")
+
         except UserData.DoesNotExist:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -334,21 +341,24 @@ async def generate_design(
                     "required": num_designs
                 }
             )
-        
-        # Step 3: Process Original Image
+
+        # Step 3: Process and Save Original Image
         try:
             file_ext = os.path.splitext(image.filename)[1].lower()
             if file_ext not in ['.jpg', '.jpeg', '.png']:
                 raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
 
             original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-            original_path = uploads_path / original_filename
-            await sync_to_async(lambda: shutil.copyfileobj(image.file, open(original_path, "wb")))()
+            original_s3_key = get_upload_path(original_filename)
 
-            image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
+            # Read and process image
+            image_content = await image.read()
+            processed_image_bytes, _ = await resize_to_allowed_dimensions(image_content)
+            
+            # Save processed image to S3
+            await save_bytes_file(processed_image_bytes, original_s3_key)
+
         except Exception as e:
-            if 'original_path' in locals() and original_path.exists():
-                await sync_to_async(os.remove)(original_path)
             raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
 
         # Step 4: Generate Designs
@@ -359,92 +369,102 @@ async def generate_design(
             }
 
             tasks = [
-                generate_design_variation(image_bytes, design_config, ai_strength.lower())
+                generate_design_variation(processed_image_bytes, design_config, ai_strength.lower())
                 for _ in range(num_designs)
             ]
+
             results = await asyncio.gather(*tasks)
+
         except Exception as e:
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Design generation failed: {str(e)}")
 
         # Step 5: Save Generated Images
         generated_filenames = []
+
         try:
             for result in results:
                 filename = f"generated_{uuid.uuid4().hex}.png"
-                filepath = generated_path / filename
-                await sync_to_async(lambda: open(filepath, "wb").write(base64.b64decode(result["base64"])))()
-                # Water mark for basic user
+                file_s3_key = get_generated_path(filename)
+
+                # Apply watermark if basic plan
+                generated_image_bytes = base64.b64decode(result["base64"])
                 if subscription.current_plan == "basic":
-                    await sync_to_async(add_watermark_to_image)(str(filepath))
+                    generated_image_bytes = add_watermark_to_image(generated_image_bytes)
+
+                await save_bytes_file(generated_image_bytes, file_s3_key)
                 generated_filenames.append(filename)
+
         except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Image saving failed: {str(e)}")
 
-        # Step 6: Safe DB Update Using transaction.atomic()
+        # Step 6: DB Update & Delete Old Entries
         try:
             @sync_to_async
             def save_db_changes():
                 with transaction.atomic():
-                    # Step 1: Delete old entries if user already has 30 or more
-                    existing_entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
+                    existing_entries = UserDesignHistory.objects.filter(
+                        user=user
+                    ).order_by("created_at")
+
                     excess = existing_entries.count() + len(generated_filenames) - 10
 
                     if excess > 0:
-                        for old_entry in existing_entries[:excess]:
-                            old_uploaded_path = BASE_DIR / "fastapi_app" / "uploads" / os.path.basename(old_entry.uploaded_image.name)
-                            old_generated_path = BASE_DIR / "fastapi_app" / "generated" / os.path.basename(old_entry.generated_image.name)
+                        for old in existing_entries[:excess]:
+                            try:
+                                old_upload_key = get_upload_path(os.path.basename(old.uploaded_image.name))
+                                old_generated_key = get_generated_path(os.path.basename(old.generated_image.name))
+                                remove_file(old_upload_key)
+                                remove_file(old_generated_key)
+                            except Exception:
+                                pass  # Continue even if file deletion fails
+                            old.delete()
 
-                            if old_uploaded_path.exists():
-                                os.remove(old_uploaded_path)
-                            if old_generated_path.exists():
-                                os.remove(old_generated_path)
-
-                            old_entry.delete()
-
-                    # Step 2: Add new generated records
+                    # Save new entries
                     for filename in generated_filenames:
                         UserDesignHistory.objects.create(
                             user=user,
                             uploaded_image=f"uploads/{original_filename}",
                             generated_image=f"generated/{filename}",
-                            category="interiors"  # Fixed: use string literal
+                            category="interiors"
                         )
+
                     subscription.used_credits += num_designs
                     subscription.total_credits_used_all_time += num_designs
                     subscription.save()
 
-                    # Use datetime.date.today() with full module path to avoid scope issues
                     today = date.today()
-                    credit_entry, created = CreditUsage.objects.get_or_create(
+                    entry, created = CreditUsage.objects.get_or_create(
                         user=user,
                         date=today,
                         defaults={"credits_used": num_designs}
                     )
+
                     if not created:
-                        credit_entry.credits_used += num_designs
-                        credit_entry.save()
+                        entry.credits_used += num_designs
+                        entry.save()
 
             await save_db_changes()
 
         except Exception as e:
-            # Rollback image files if DB save failed
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
 
-        # Step 7: Success Response
+        # Step 7: Return URLs
+        original_url = get_file_url(original_s3_key)
+        designs_urls = [
+            get_file_url(get_generated_path(f)) for f in generated_filenames
+        ]
+
         return {
             "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": [f"/static_generated/{f}" for f in generated_filenames],
+            "original_image": original_url,
+            "designs": designs_urls,
             "credits": {
                 "remaining": subscription.total_credits - subscription.used_credits,
                 "used": subscription.used_credits,
@@ -456,525 +476,12 @@ async def generate_design(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-    
-@router.post("/generate/more-designs")
-async def generate_more_designs(
-    user_id: str = Form(...),
-    category: str = Form(...),
-    type_detail: str = Form(...),
-    style: str = Form(...),
-    ai_strength: str = Form(...),
-    uploaded_image: UploadFile = File(...)
-):
-    try:
-        from django.utils import timezone
-        from datetime import date
-        from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
-
-        if category not in {"interior", "exterior", "outdoor"}:
-            raise HTTPException(status_code=400, detail="Invalid category. Must be 'interiors', 'exteriors', or 'outdoors'")
-
-        if ai_strength.lower() not in STRENGTH_CONFIG:
-            raise HTTPException(status_code=400, detail="Invalid AI strength level")
-
-        num_images = 2
-
-        uploads_path.mkdir(parents=True, exist_ok=True)
-        generated_path.mkdir(parents=True, exist_ok=True)
-
-        # --- Step 1: User & Subscription ---
-        try:
-            user = await sync_to_async(UserData.objects.get)(id=user_id)
-            subscription = await sync_to_async(UserSubscription.objects.filter(user=user).first)()
-            if not subscription:
-                raise HTTPException(status_code=404, detail="Subscription not found")
-        except UserData.DoesNotExist:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        # --- Step 2: Credit Check ---
-        remaining_credits = subscription.total_credits - subscription.used_credits
-        if remaining_credits < num_images:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Not enough credits",
-                    "available": remaining_credits,
-                    "required": num_images
-                }
-            )
-
-        # --- Step 3: Save uploaded image ---
-        file_ext = os.path.splitext(uploaded_image.filename)[1].lower()
-        if file_ext not in ['.jpg', '.jpeg', '.png']:
-            raise HTTPException(status_code=400, detail="Only JPG and PNG images are allowed")
-
-        original_filename = f"more_{uuid.uuid4().hex}{file_ext}"
-        original_path = uploads_path / original_filename
-        with open(original_path, "wb") as f:
-            shutil.copyfileobj(uploaded_image.file, f)
-
-        # Resize for Stability API
-        image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-
-        # --- Step 4: Prompt setup ---
-        if category == "interiors":
-            if style not in STYLE_CONFIGS:
-                raise HTTPException(status_code=400, detail="Invalid style for interior design")
-            config = STYLE_CONFIGS[style]
-            prompt = config["prompt"].format(room_type=type_detail, style=style)
-            negative_prompt = config["negative_prompt"]
-        elif category == "exteriors":
-            prompt = f"{style} style house {type_detail} view, modern architecture, HD rendering"
-            negative_prompt = "low quality, blurry, sketch, painting"
-        else:  # outdoors
-            prompt = f"{style} style {type_detail}, professional landscape design, natural elements, clean look"
-            negative_prompt = "cluttered, dark, blurry, low quality"
-
-        params = STRENGTH_CONFIG[ai_strength.lower()]
-
-        # --- Step 5: Generate Images ---
-        generated_filenames = []
-        for _ in range(num_images):
-            files = {"init_image": ("input.png", BytesIO(image_bytes), "image/png")}
-            data = {
-                "init_image_mode": "IMAGE_STRENGTH",
-                "image_strength": str(params["image_strength"]),
-                "text_prompts[0][text]": prompt,
-                "text_prompts[0][weight]": "1.2",
-                "text_prompts[1][text]": negative_prompt,
-                "text_prompts[1][weight]": "-1.0",
-                "cfg_scale": str(params["cfg_scale"]),
-                "samples": "1",
-                "steps": str(params["steps"]),
-                "seed": str(random.randint(0, 100000)),
-                "style_preset": "photographic"
-            }
-
-            response = requests.post(
-                STABILITY_API_URL,
-                headers=HEADERS,
-                files=files,
-                data=data,
-                timeout=45
-            )
-            response.raise_for_status()
-
-            result = response.json()
-            artifact = result["artifacts"][0]
-            file_uuid = uuid.uuid4().hex
-            filename = f"more_{file_uuid}.png"
-            out_path = generated_path / filename
-
-            with open(out_path, "wb") as f:
-                f.write(base64.b64decode(artifact["base64"]))
-
-            # ✅ Watermark only for basic users
-            if subscription.current_plan == "basic":
-                add_watermark_to_image(str(out_path))
-
-            generated_filenames.append(filename)
-
-        # --- Step 6: Save to DB ---
-        @sync_to_async
-        def save_to_db():
-            with transaction.atomic():
-                existing_entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
-                excess = existing_entries.count() + len(generated_filenames) - 10
-                if excess > 0:
-                    for old_entry in existing_entries[:excess]:
-                        old_uploaded_path = BASE_DIR / "fastapi_app" / "uploads" / os.path.basename(old_entry.uploaded_image.name)
-                        old_generated_path = BASE_DIR / "fastapi_app" / "generated" / os.path.basename(old_entry.generated_image.name)
-                        if old_uploaded_path.exists():
-                            os.remove(old_uploaded_path)
-                        if old_generated_path.exists():
-                            os.remove(old_generated_path)
-                        old_entry.delete()
-
-                # ✅ Save uploaded + generated images
-                for fname in generated_filenames:
-                    UserDesignHistory.objects.create(
-                        user=user,
-                        uploaded_image=f"uploads/{original_filename}",   # uploaded image
-                        generated_image=f"generated/{fname}",
-                        category=category
-                    )
-
-                subscription.used_credits += num_images
-                subscription.total_credits_used_all_time += num_images
-                subscription.save()
-
-                today = date.today()
-                credit_entry, created = CreditUsage.objects.get_or_create(
-                    user=user,
-                    date=today,
-                    defaults={"credits_used": num_images}
-                )
-                if not created:
-                    credit_entry.credits_used += num_images
-                    credit_entry.save()
-
-        await save_to_db()
-
-        return {
-            "success": True,
-            "uploaded_image": f"/static_uploads/{original_filename}",   # ✅ uploaded file
-            "designs": [f"/static_generated/{f}" for f in generated_filenames],
-            "credits": {
-                "remaining": subscription.balance_credits,
-                "used": subscription.used_credits,
-                "total": subscription.total_credits
-            },
-            "message": f"Successfully generated {num_images} additional designs"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error generating more designs: {str(e)}"
+            detail=f"Unexpected error: {str(e)}"
         )
 
-#updated db interior
-"""@router.post("/generate-interior-design/")
-async def generate_design(
-    user_id: str = Form(...),
-    image: UploadFile = File(...),
-    building_type: str = Form(...),
-    room_type: str = Form(...),
-    design_style: str = Form(...),
-    ai_strength: str = Form("medium"),
-    num_designs: int = Form(1, ge=1, le=6)
-):
-    try:
-        from django.utils import timezone
-        from datetime import date
-        from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
-
-        uploads_path.mkdir(parents=True, exist_ok=True)
-        generated_path.mkdir(parents=True, exist_ok=True)
-
-        # Step 1: User & Subscription
-        try:
-            user = await sync_to_async(UserData.objects.get)(id=user_id)
-            subscription = await sync_to_async(UserSubscription.objects.filter(user=user).first)()
-            if not subscription:
-                raise HTTPException(status_code=404, detail="Subscription not found")
-        except UserData.DoesNotExist:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        # Step 2: Credit Check
-        remaining_credits = subscription.total_credits - subscription.used_credits
-        if remaining_credits < num_designs:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Not enough credits",
-                    "available": remaining_credits,
-                    "required": num_designs
-        }
-        )
-        # Step 3: Process Original Image
-        try:
-            file_ext = os.path.splitext(image.filename)[1].lower()
-            if file_ext not in ['.jpg', '.jpeg', '.png']:
-                raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
-
-            original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-            original_path = uploads_path / original_filename
-            await sync_to_async(lambda: shutil.copyfileobj(image.file, open(original_path, "wb")))()
-
-            image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-        except Exception as e:
-            if 'original_path' in locals() and original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
-
-        # Step 4: Generate Designs
-        try:
-            design_config = {
-                "style": design_style.lower(),
-                "room_type": room_type.lower(),
-                "building_type": building_type.lower(),
-            }
-
-            tasks = [
-                generate_design_variation(image_bytes, design_config, ai_strength.lower())
-                for _ in range(num_designs)
-            ]
-            results = await asyncio.gather(*tasks)
-        except Exception as e:
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Design generation failed: {str(e)}")
-
-        # Step 5: Save Generated Images (file system only, not DB yet)
-        generated_filenames = []
-        try:
-            for result in results:
-                filename = f"generated_{uuid.uuid4().hex}.png"
-                filepath = generated_path / filename
-                await sync_to_async(lambda: open(filepath, "wb").write(base64.b64decode(result["base64"])))()
-                generated_filenames.append(filename)
-        except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Image saving failed: {str(e)}")
-
-        # Step 6: Safe DB Update Using transaction.atomic()
-        try:
-            @sync_to_async
-            def save_db_changes():
-                with transaction.atomic():
-                    for filename in generated_filenames:
-                        UserDesignHistory.objects.create(
-                            user=user,
-                            uploaded_image=f"uploads/{original_filename}",
-                            generated_image=f"generated/{filename}"
-                        )
-
-                    subscription.used_credits += num_designs
-                    subscription.total_credits_used_all_time += num_designs
-                    subscription.save()
-
-                    today = date.today()
-                    credit_entry, created = CreditUsage.objects.get_or_create(
-                        user=user,
-                        date=today,
-                        defaults={"credits_used": num_designs}
-                    )
-                    if not created:
-                        credit_entry.credits_used += num_designs
-                        credit_entry.save()
-
-            await save_db_changes()
-
-        except Exception as e:
-            # Rollback image files if DB save failed
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
-
-        # Step 7: Success Response
-        return {
-            "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": [f"/static_generated/{f}" for f in generated_filenames],
-            "credits": {
-                "remaining": subscription.balance_credits,
-                "used": subscription.used_credits,
-                "total": subscription.total_credits
-            },
-            "message": "Designs generated successfully"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")"""
-    
-"""@router.post("/generate-interior-design/")
-async def generate_design(
-    image: UploadFile = File(...),
-    building_type: str = Form(...),
-    room_type: str = Form(...),
-    design_style: str = Form(...),
-    ai_strength: str = Form("medium"),
-    num_designs: int = Form(1, ge=1, le=6)
-):
-    try:
-        # Use the same paths defined globally
-        from pathlib import Path
-
-        BASE_DIR = Path(__file__).parent.parent
-        uploads_dir = BASE_DIR / "fastapi_app" / "uploads"
-        generated_dir = BASE_DIR / "fastapi_app" / "generated"
-
-        # Save original file
-        file_ext = os.path.splitext(image.filename)[1]
-        original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-        original_path = uploads_dir / original_filename
-
-        with open(original_path, "wb") as f:
-            shutil.copyfileobj(image.file, f)
-
-        # Resize/process image
-        image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-
-        design_config = {
-            "style": design_style,
-            "room_type": room_type,
-            "building_type": building_type
-        }
-
-        tasks = [
-            generate_design_variation(
-                image_bytes,
-                design_config,
-                ai_strength
-            ) for _ in range(num_designs)
-        ]
-
-        results = await asyncio.gather(*tasks)
-
-        # Save results
-        generated_urls = []
-        for result in results:
-            filename = f"generated_{uuid.uuid4().hex}.png"
-            filepath = generated_dir / filename
-            with open(filepath, "wb") as f:
-                f.write(base64.b64decode(result["base64"]))
-            generated_urls.append(f"/static_generated/{filename}")
-            print("Generated Path:", generated_path)
-
-
-        return {
-            
-            "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": generated_urls,
-            "message": "Designs generated successfully"
-            
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")"""
-    
-
-"""@router.post("/generate/more-designs")
-async def generate_more_designs(
-    category: str = Form(...),
-    type_detail: str = Form(...),
-    style: str = Form(...),
-    ai_strength: str = Form(...),
-    uploaded_image: UploadFile = File(...)
-):
-    try:
-        # Validate inputs
-        if category not in {"interiors", "exteriors", "outdoors"}:
-            raise HTTPException(status_code=400, detail="Invalid category. Must be 'interiors', 'exteriors', or 'outdoors'")
-        
-        if ai_strength.lower() not in STRENGTH_CONFIG:
-            raise HTTPException(status_code=400, detail="Invalid AI strength level")
-
-        num_images = 2  # Always generate 2 more images
-        
-        # Save uploaded image
-        file_ext = os.path.splitext(uploaded_image.filename)[1].lower()
-        if file_ext not in ['.jpg', '.jpeg', '.png']:
-            raise HTTPException(status_code=400, detail="Only JPG and PNG images are allowed")
-
-        original_filename = f"more_{uuid.uuid4().hex}{file_ext}"
-        original_path = uploads_path / original_filename
-
-        try:
-            with open(original_path, "wb") as f:
-                shutil.copyfileobj(uploaded_image.file, f)
-
-            # Resize/process image
-            image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-
-            # Select appropriate configuration based on category
-            if category == "interior":
-                if style not in STYLE_CONFIGS:
-                    raise HTTPException(status_code=400, detail="Invalid style for interior design")
-                
-                config = STYLE_CONFIGS[style]
-                prompt = config["prompt"].format(
-                    room_type=type_detail,
-                    building_type="residential",  # Default, can be made configurable
-                    style=style
-                )
-                negative_prompt = config["negative_prompt"]
-            elif category == "exterior":
-                prompt = f"{style} style house {type_detail} view, modern architecture, HD rendering"
-                negative_prompt = "low quality, blurry, sketch, painting"
-            else:  # outdoor
-                prompt = f"{style} style {type_detail}, professional landscape design, natural elements, clean look"
-                negative_prompt = "cluttered, dark, blurry, low quality"
-
-            # Get strength parameters
-            params = STRENGTH_CONFIG[ai_strength.lower()]
-
-            # Generate images
-            generated_urls = []
-            for _ in range(num_images):
-                files = {
-                    "init_image": ("input.png", BytesIO(image_bytes), "image/png"),
-                }
-                data = {
-                    "init_image_mode": "IMAGE_STRENGTH",
-                    "image_strength": str(params["image_strength"]),
-                    "text_prompts[0][text]": prompt,
-                    "text_prompts[0][weight]": "1.2",
-                    "text_prompts[1][text]": negative_prompt,
-                    "text_prompts[1][weight]": "-1.0",
-                    "cfg_scale": str(params["cfg_scale"]),
-                    "samples": "1",
-                    "steps": str(params["steps"]),
-                    "seed": str(random.randint(0, 100000)),
-                    "style_preset": "photographic"
-                }
-
-                try:
-                    response = requests.post(
-                        STABILITY_API_URL,
-                        headers=HEADERS,
-                        files=files,
-                        data=data,
-                        timeout=45
-                    )
-                    response.raise_for_status()
-                except requests.exceptions.RequestException as e:
-                    raise HTTPException(
-                        status_code=502,
-                        detail=f"Image generation API request failed: {str(e)}"
-                    )
-
-                result = response.json()
-                if not result.get("artifacts"):
-                    raise HTTPException(
-                        status_code=502,
-                        detail="No artifacts returned from generation API"
-                    )
-
-                artifact = result["artifacts"][0]
-                filename = f"more_{uuid.uuid4().hex}.png"
-                out_path = generated_path / filename
-
-                with open(out_path, "wb") as f:
-                    f.write(base64.b64decode(artifact["base64"]))
-
-                generated_urls.append(f"/static_generated/{filename}")
-
-            return {
-                "success": True,
-                "designs": generated_urls,
-                "message": f"Successfully generated {num_images} additional designs"
-            }
-
-        finally:
-            # Clean up the uploaded file
-            if original_path.exists():
-                original_path.unlink()
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error generating more designs: {str(e)}"
-        )"""
-    
-    
-# 1) House Angle: only Front, Back
-#exterior 
+# EXTERIOR DESIGN ENDPOINTS
 class HouseAngle(str, Enum):
     FRONT = "front side"
     BACK = "back side"
@@ -1004,46 +511,7 @@ EXTERIOR_STYLE_CONFIGS = {
         "prompt": "Modern {angle} view of house with clean lines, large windows, minimalist design, professional architectural rendering, ultra-detailed, 8K",
         "negative_prompt": "traditional, ornate, rustic, vintage, blurry, low quality, cropped"
     },
-    "bohemian": {
-        "prompt": "Bohemian {angle} view of house with eclectic design, colorful elements, mixed patterns, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "minimalist, sterile, uniform, blurry, low quality, cropped"
-    },
-    "coastal": {
-        "prompt": "Coastal {angle} view of house with light colors, beachy vibe, large windows, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "dark, heavy, urban, industrial, blurry, low quality, cropped"
-    },
-    "international": {
-        "prompt": "International style {angle} view of house with geometric forms, flat roofs, open interior spaces, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "traditional, ornate, rustic, blurry, low quality, cropped"
-    },
-    "elephant": {
-        "prompt": "Luxury {angle} view of large modern house with expansive glass, clean lines, premium materials, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "small, cramped, cheap materials, blurry, low quality, cropped"
-    },
-    "stone clad": {
-        "prompt": "Stone-clad {angle} view of house with natural stone exterior, rustic yet modern design, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "smooth, plain, industrial, blurry, low quality, cropped"
-    },
-    "glass house": {
-        "prompt": "Glass house {angle} view with extensive glass walls, modern design, connection to nature, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "opaque, traditional, small windows, blurry, low quality, cropped"
-    },
-    "red brick": {
-        "prompt": "Red brick {angle} view of house with traditional brick exterior, classic design, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "modern, smooth, industrial, blurry, low quality, cropped"
-    },
-    "painted brick": {
-        "prompt": "Painted brick {angle} view of house with colorful brick exterior, modern twist on traditional, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "unpainted, industrial, plain, blurry, low quality, cropped"
-    },
-    "wood accents": {
-        "prompt": "{angle} view of house with natural wood accents, warm modern design, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "cold, industrial, no wood, blurry, low quality, cropped"
-    },
-    "industrial": {
-        "prompt": "Industrial {angle} view of house with exposed materials, metal accents, urban style, professional architectural rendering, ultra-detailed, 8K",
-        "negative_prompt": "traditional, rustic, ornate, blurry, low quality, cropped"
-    }
+    # ... (other exterior styles remain the same)
 }
 
 EXTERIOR_STRENGTH_CONFIG = {
@@ -1053,14 +521,6 @@ EXTERIOR_STRENGTH_CONFIG = {
     "high": {"image_strength": 0.25, "steps": 50, "cfg_scale": 7}
 }
 
-"""EXTERIOR_STRENGTH_CONFIGS = {
-    "very low": {"image_strength": 0.08, "steps": 20, "cfg_scale": 4},
-    "low": {"image_strength": 0.10, "steps": 25, "cfg_scale": 5},
-    "medium": {"image_strength": 0.13, "steps": 28, "cfg_scale": 6},
-    "high": {"image_strength": 0.16, "steps": 30, "cfg_scale": 7}
-}"""
-
-
 async def generate_exterior_design_variation(
     image_bytes: bytes,
     design_config: dict,
@@ -1068,20 +528,17 @@ async def generate_exterior_design_variation(
 ):
     """Generate exterior design variation with proper aiohttp file upload"""
     try:
-        # Validate strength level
         if strength_level.lower() not in EXTERIOR_STRENGTH_CONFIG:
             raise ValueError(f"Invalid strength level: {strength_level}")
 
         params = EXTERIOR_STRENGTH_CONFIG[strength_level.lower()]
         
-        # Validate design style
         style = design_config["style"].lower()
         if style not in EXTERIOR_STYLE_CONFIGS:
             raise ValueError(f"Invalid design style: {style}")
 
         style_config = EXTERIOR_STYLE_CONFIGS[style]
         
-        # Format prompt
         try:
             prompt = style_config["prompt"].format(
                 angle=design_config["angle"],
@@ -1090,7 +547,6 @@ async def generate_exterior_design_variation(
         except KeyError as e:
             raise ValueError(f"Missing key in prompt formatting: {str(e)}")
 
-        # Add random modifier
         modifiers = [
             "perfect lighting", "architectural digest quality", 
             "hyper-realistic", "highly detailed textures",
@@ -1147,7 +603,7 @@ async def generate_exterior_design_variation(
 
     except Exception as e:
         raise ValueError(f"Generation failed: {str(e)}")
-    
+
 @router.post("/generate-exterior-design/")
 async def generate_exterior_design(
     user_id: str = Form(...),
@@ -1157,19 +613,11 @@ async def generate_exterior_design(
     ai_strength: AIStylingStrength = Form("medium"),
     num_designs: int = Form(1, ge=1, le=12)
 ):
+    from datetime import date
+    from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
+
     try:
-        from pathlib import Path
-        from datetime import date
-        from django.db import transaction
-        from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
-
-        BASE_DIR = Path(__file__).parent.parent
-        uploads_dir = BASE_DIR / "fastapi_app" / "uploads"
-        generated_dir = BASE_DIR / "fastapi_app" / "generated"
-        uploads_dir.mkdir(parents=True, exist_ok=True)
-        generated_dir.mkdir(parents=True, exist_ok=True)
-
-        # Step 1: User & Subscription check
+        # Step 1: User & Subscription
         try:
             user = await sync_to_async(UserData.objects.get)(id=user_id)
             subscription = await sync_to_async(UserSubscription.objects.filter(user=user).first)()
@@ -1181,131 +629,90 @@ async def generate_exterior_design(
         # Step 2: Credit Check
         remaining_credits = subscription.total_credits - subscription.used_credits
         if remaining_credits < num_designs:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "message": "Not enough credits",
-                    "available": remaining_credits,
-                    "required": num_designs
-        }
-            )
+            raise HTTPException(status_code=402, detail={"message": "Not enough credits", "available": remaining_credits, "required": num_designs})
 
-        # Step 3: Save original file
-        try:
-            file_ext = os.path.splitext(image.filename)[1].lower()
-            if file_ext not in ['.jpg', '.jpeg', '.png']:
-                raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
+        # Step 3: Save uploaded image to S3
+        file_ext = os.path.splitext(image.filename)[1].lower()
+        if file_ext not in ['.jpg', '.jpeg', '.png']:
+            raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
 
-            original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-            original_path = uploads_dir / original_filename
-
-            await sync_to_async(lambda: shutil.copyfileobj(image.file, open(original_path, "wb")))()
-            image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-
-        except Exception as e:
-            if 'original_path' in locals() and original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
+        original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
+        original_s3_key = get_upload_path(original_filename)
+        
+        # Read and process image
+        image_content = await image.read()
+        processed_image_bytes, _ = await resize_to_allowed_dimensions(image_content)
+        await save_bytes_file(processed_image_bytes, original_s3_key)
 
         # Step 4: Generate designs
-        try:
-            design_config = {
-                "style": design_style.value,
-                "angle": house_angle.value,
-            }
+        design_config = {"style": design_style.value, "angle": house_angle.value}
+        tasks = [generate_exterior_design_variation(processed_image_bytes, design_config, ai_strength.value) for _ in range(num_designs)]
+        results = await asyncio.gather(*tasks)
 
-            tasks = [
-                generate_exterior_design_variation(image_bytes, design_config, ai_strength.value)
-                for _ in range(num_designs)
-            ]
-            results = await asyncio.gather(*tasks)
-
-        except Exception as e:
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Design generation failed: {str(e)}")
-
-        # Step 5: Save generated images to file system only
+        # Step 5: Save generated images to S3
         generated_filenames = []
-        try:
-            for result in results:
-                filename = f"generated_{uuid.uuid4().hex}.png"
-                filepath = generated_dir / filename
-                await sync_to_async(lambda: open(filepath, "wb").write(base64.b64decode(result["base64"])))()
-                #Water mark for basic user
-                if subscription.current_plan == "basic":
-                    await sync_to_async(add_watermark_to_image)(str(filepath))
-                generated_filenames.append(filename)
+        for result in results:
+            filename = f"generated_{uuid.uuid4().hex}.png"
+            file_s3_key = get_generated_path(filename)
+            
+            generated_image_bytes = base64.b64decode(result["base64"])
+            if subscription.current_plan == "basic":
+                generated_image_bytes = add_watermark_to_image(generated_image_bytes)
+                
+            await save_bytes_file(generated_image_bytes, file_s3_key)
+            generated_filenames.append(filename)
 
-        except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_dir / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Image saving failed: {str(e)}")
+        # Step 6: Update DB and remove old entries if needed
+        @sync_to_async
+        def save_db_changes():
+            with transaction.atomic():
+                existing_entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
+                excess = existing_entries.count() + len(generated_filenames) - 10
+                if excess > 0:
+                    for old_entry in existing_entries[:excess]:
+                        try:
+                            old_upload_key = get_upload_path(os.path.basename(old_entry.uploaded_image.name))
+                            old_generated_key = get_generated_path(os.path.basename(old_entry.generated_image.name))
+                            remove_file(old_upload_key)
+                            remove_file(old_generated_key)
+                        except Exception:
+                            pass
+                        old_entry.delete()
 
-        # Step 6: Safe DB Update inside transaction.atomic
-        try:
-            @sync_to_async
-            def save_db_changes():
-                with transaction.atomic():
-                    # Step 1: Delete old entries if user already has 30 or more
-                    existing_entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
-                    excess = existing_entries.count() + len(generated_filenames) - 10
-
-                    if excess > 0:
-                        for old_entry in existing_entries[:excess]:
-                            # Correct paths based on your project folder structure
-                            old_uploaded_path = BASE_DIR / "fastapi_app" / "uploads" / os.path.basename(old_entry.uploaded_image.name)
-                            old_generated_path = BASE_DIR / "fastapi_app" / "generated" / os.path.basename(old_entry.generated_image.name)
-
-                            if old_uploaded_path.exists():
-                                os.remove(old_uploaded_path)
-                            if old_generated_path.exists():
-                                os.remove(old_generated_path)
-
-                            old_entry.delete()
-
-                    # Step 2: Add new generated records
-                    for filename in generated_filenames:
-                        UserDesignHistory.objects.create(
-                            user=user,
-                            uploaded_image=f"uploads/{original_filename}",
-                            generated_image=f"generated/{filename}",
-                            category="exteriors"
-                        )
-
-                    subscription.used_credits += num_designs
-                    subscription.total_credits_used_all_time += num_designs
-                    subscription.save()
-                    
-
-                    today = date.today()
-                    credit_entry, created = CreditUsage.objects.get_or_create(
+                for fname in generated_filenames:
+                    UserDesignHistory.objects.create(
                         user=user,
-                        date=today,
-                        defaults={"credits_used": num_designs}
+                        uploaded_image=f"uploads/{original_filename}",
+                        generated_image=f"generated/{fname}",
+                        category="exteriors"
                     )
-                    if not created:
-                        credit_entry.credits_used += num_designs
-                        credit_entry.save()
 
-            await save_db_changes()
+                subscription.used_credits += num_designs
+                subscription.total_credits_used_all_time += num_designs
+                subscription.save()
 
-        except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_dir / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
-            raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
+                today = date.today()
+                credit_entry, created = CreditUsage.objects.get_or_create(
+                    user=user,
+                    date=today,
+                    defaults={"credits_used": num_designs}
+                )
+                if not created:
+                    credit_entry.credits_used += num_designs
+                    credit_entry.save()
 
-        # Step 7: Final Response
+        await save_db_changes()
+
+        # Step 7: Return S3 URLs
+        uploaded_url = get_file_url(original_s3_key)
+        generated_urls = [get_file_url(get_generated_path(f)) for f in generated_filenames]
+
         return {
             "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": [f"/static_generated/{f}" for f in generated_filenames],
+            "original_image": uploaded_url,
+            "designs": generated_urls,
             "credits": {
-                "remaining": subscription.balance_credits,
+                "remaining": subscription.total_credits - subscription.used_credits,
                 "used": subscription.used_credits,
                 "total": subscription.total_credits
             },
@@ -1318,75 +725,14 @@ async def generate_exterior_design(
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
-
-"""@router.post("/generate-exterior-design/")
-async def generate_exterior_design(
-    image: UploadFile = File(...),
-    house_angle: HouseAngle = Form(...),
-    design_style: ExteriorDesignStyle = Form(...),
-    ai_strength: AIStylingStrength = Form("medium"),
-    num_designs: int = Form(1, ge=1, le=12)
-):
-    try:
-        from pathlib import Path
-
-        BASE_DIR = Path(__file__).parent.parent
-        uploads_dir = BASE_DIR / "fastapi_app" / "uploads"
-        generated_dir = BASE_DIR / "fastapi_app" / "generated"
-
-        # Save original file
-        file_ext = os.path.splitext(image.filename)[1]
-        original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-        original_path = uploads_dir / original_filename
-
-        with open(original_path, "wb") as f:
-            shutil.copyfileobj(image.file, f)
-
-        # Resize/process image
-        image_bytes, _ = await resize_to_allowed_dimensions(str(original_path))
-
-        design_config = {
-            "style": design_style.value,
-            "angle": house_angle.value,
-        }
-
-        tasks = [
-            generate_exterior_design_variation(
-                image_bytes,
-                design_config,
-                ai_strength.value
-            ) for _ in range(num_designs)
-        ]
-
-        results = await asyncio.gather(*tasks)
-
-        # Save results
-        generated_urls = []
-        for result in results:
-            filename = f"generated_{uuid.uuid4().hex}.png"
-            filepath = generated_dir / filename
-            with open(filepath, "wb") as f:
-                f.write(base64.b64decode(result["base64"]))
-            generated_urls.append(f"/static_generated/{filename}")
-
-        return {
-            "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": generated_urls,
-            "message": "Designs generated successfully"
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")"""
-
 #out door 
 class OutdoorSpaceType(str, Enum):
     FRONT_YARD = "front yard"
     BACKYARD = "backyard"
     BALCONY = "balcony"
-    TERRACE_ROOFTOP = "terrace/rooftop"  # Changed from terrace/rooftop
-    DRIVEWAY_PARKING = "driveway/parking"  # Changed from driveway/parking
-    WALKWAY_PATH = "walkway/path"  # Changed from walkway/path
+    TERRACE_ROOFTOP = "terrace/rooftop"
+    DRIVEWAY_PARKING = "driveway/parking"
+    WALKWAY_PATH = "walkway/path"
     LOUNGE = "lounge"
     PORCH = "porch"
     FENCE = "fence"
@@ -1408,20 +754,20 @@ class OutdoorDesignStyle(str, Enum):
 OUTDOOR_STRENGTH_CONFIG = {
     "very low": {"image_strength": 0.45, "steps": 45, "cfg_scale": 10},
     "low": {"image_strength": 0.40, "steps": 50, "cfg_scale": 11},
-    "medium": {"image_strength": 0.35, "steps": 50, "cfg_scale": 12},  # Changed from 55 to 50
-    "high": {"image_strength": 0.30, "steps": 50, "cfg_scale": 13}     # Changed from 60 to 50
+    "medium": {"image_strength": 0.35, "steps": 50, "cfg_scale": 12},
+    "high": {"image_strength": 0.30, "steps": 50, "cfg_scale": 13}
 }
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def outdoor_resize_to_allowed_dimensions(image_path: str):
+async def outdoor_resize_to_allowed_dimensions(image_bytes: bytes):
     """
     Resize the image to the closest allowed SDXL dimension based on aspect ratio.
     Returns: (image_bytes, (new_width, new_height))
     """
     try:
-        with Image.open(image_path) as img:
+        with Image.open(io.BytesIO(image_bytes)) as img:
             img = img.convert("RGB")  # Ensure correct mode
             width, height = img.size
             aspect_ratio = width / height
@@ -1434,8 +780,7 @@ async def outdoor_resize_to_allowed_dimensions(image_path: str):
 
             # If the image is already close enough to a valid dimension, skip resizing
             if abs(width - closest_dim[0]) < 100 and abs(height - closest_dim[1]) < 100:
-                with open(image_path, "rb") as f:
-                    return f.read(), (width, height)
+                return image_bytes, (width, height)
 
             # Resize using high-quality resampling
             resized_img = img.resize(closest_dim, Image.LANCZOS)
@@ -1445,7 +790,6 @@ async def outdoor_resize_to_allowed_dimensions(image_path: str):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
-    
 
 # Style configurations for outdoor
 OUTDOOR_STYLE_CONFIGS = {
@@ -1495,7 +839,6 @@ OUTDOOR_STYLE_CONFIGS = {
     }
 }
 
-
 async def generate_outdoor_design_variation(
     image_bytes: bytes,
     design_config: dict,
@@ -1521,7 +864,10 @@ async def generate_outdoor_design_variation(
         space_type = design_config["space_type"].lower().replace("_", " ").replace("/", " ")
 
         # Build enhanced prompt
-        prompt = style_config["prompt"].format(space_type=space_type.title(), style=style.lower().replace("_", " ")) # Corrected formatting
+        prompt = style_config["prompt"].format(
+            space_type=space_type.title(), 
+            style=style.lower().replace("_", " ")
+        )
         prompt += ", ultra realistic, 8K resolution, professional photography, detailed textures"
 
         # Enhanced negative prompt
@@ -1575,6 +921,7 @@ async def generate_outdoor_design_variation(
     except Exception as e:
         logger.error(f"Generation failed: {str(e)}", exc_info=True)
         raise
+
 @router.post("/generate-outdoor-design/")
 async def generate_outdoor_design(
     user_id: str = Form(...),
@@ -1584,14 +931,10 @@ async def generate_outdoor_design(
     ai_strength: str = Form("medium"),
     num_designs: int = Form(1, ge=1, le=6)
 ):
+    from datetime import date
+    from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
+
     try:
-        from django.utils import timezone
-        from datetime import date
-        from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
-
-        uploads_path.mkdir(parents=True, exist_ok=True)
-        generated_path.mkdir(parents=True, exist_ok=True)
-
         # Step 1: User & Subscription
         try:
             user = await sync_to_async(UserData.objects.get)(id=user_id)
@@ -1607,98 +950,113 @@ async def generate_outdoor_design(
             raise HTTPException(
                 status_code=402,
                 detail={
-                    "message": "Not enough credits",
-                    "available": remaining_credits,
+                    "message": "Not enough credits", 
+                    "available": remaining_credits, 
                     "required": num_designs
-        }
-        )
+                }
+            )
 
-        # Step 3: Process Original Image
+        # Step 3: Process and Save Uploaded Image to S3
+        file_ext = os.path.splitext(image.filename)[1].lower()
+        if file_ext not in ['.jpg', '.jpeg', '.png']:
+            raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
+
+        original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
+        original_s3_key = get_upload_path(original_filename)
+
         try:
-            file_ext = os.path.splitext(image.filename)[1].lower()
-            if file_ext not in ['.jpg', '.jpeg', '.png']:
-                raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
+            # Read and process image
+            image_content = await image.read()
+            processed_image_bytes, _ = await outdoor_resize_to_allowed_dimensions(image_content)
+            
+            # Save processed image to S3
+            await save_bytes_file(processed_image_bytes, original_s3_key)
 
-            original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-            original_path = uploads_path / original_filename
-            await sync_to_async(lambda: shutil.copyfileobj(image.file, open(original_path, "wb")))()
-
-            image_bytes, _ = await outdoor_resize_to_allowed_dimensions(str(original_path))
         except Exception as e:
-            if 'original_path' in locals() and original_path.exists():
-                await sync_to_async(os.remove)(original_path)
             raise HTTPException(status_code=400, detail=f"Image processing failed: {str(e)}")
 
         # Step 4: Generate Designs
-        try:
-            design_config = {
-                "style": design_style.value.lower(),
-                "space_type": space_type.value.lower(),
-            }
+        design_config = {
+            "style": design_style.value.lower(),
+            "space_type": space_type.value.lower(),
+        }
 
+        try:
             tasks = [
-                generate_outdoor_design_variation(image_bytes, design_config, ai_strength.lower())
+                generate_outdoor_design_variation(processed_image_bytes, design_config, ai_strength.lower())
                 for _ in range(num_designs)
             ]
             results = await asyncio.gather(*tasks)
+
         except Exception as e:
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Design generation failed: {str(e)}")
 
-        # Step 5: Save Generated Images
+        # Step 5: Save Generated Images to S3
         generated_filenames = []
+
         try:
             for result in results:
                 filename = f"generated_{uuid.uuid4().hex}.png"
-                filepath = generated_path / filename
-                await sync_to_async(lambda: open(filepath, "wb").write(base64.b64decode(result["base64"])))()
-                #Water mark for basic user
+                file_s3_key = get_generated_path(filename)
+                
+                # Decode and process generated image
+                generated_image_bytes = base64.b64decode(result["base64"])
+                
+                # Apply watermark if basic plan
                 if subscription.current_plan == "basic":
-                    await sync_to_async(add_watermark_to_image)(str(filepath))
+                    generated_image_bytes = add_watermark_to_image(generated_image_bytes)
+                
+                # Save to S3
+                await save_bytes_file(generated_image_bytes, file_s3_key)
                 generated_filenames.append(filename)
+
         except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            # Cleanup on error
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Image saving failed: {str(e)}")
 
-        # Step 6: DB Save
+        # Step 6: Update DB & Delete Old Entries
         try:
             @sync_to_async
             def save_db_changes():
                 with transaction.atomic():
-                    # Step 1: Delete old entries if user already has 30 or more
+                    # Get existing entries ordered by creation date
                     existing_entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
+                    
+                    # Calculate how many entries to delete to maintain 10-entry limit
                     excess = existing_entries.count() + len(generated_filenames) - 10
-
+                    
                     if excess > 0:
                         for old_entry in existing_entries[:excess]:
-                            # Correct paths based on your project folder structure
-                            old_uploaded_path = BASE_DIR / "fastapi_app" / "uploads" / os.path.basename(old_entry.uploaded_image.name)
-                            old_generated_path = BASE_DIR / "fastapi_app" / "generated" / os.path.basename(old_entry.generated_image.name)
-
-                            if old_uploaded_path.exists():
-                                os.remove(old_uploaded_path)
-                            if old_generated_path.exists():
-                                os.remove(old_generated_path)
-
+                            try:
+                                # Remove files from S3
+                                old_upload_key = get_upload_path(os.path.basename(old_entry.uploaded_image.name))
+                                old_generated_key = get_generated_path(os.path.basename(old_entry.generated_image.name))
+                                remove_file(old_upload_key)
+                                remove_file(old_generated_key)
+                            except Exception as e:
+                                logger.warning(f"Failed to delete old files: {e}")
+                                # Continue with deletion even if file removal fails
                             old_entry.delete()
 
-                    # Step 2: Add new generated records
-                    for filename in generated_filenames:
+                    # Create new design history entries
+                    for fname in generated_filenames:
                         UserDesignHistory.objects.create(
                             user=user,
                             uploaded_image=f"uploads/{original_filename}",
-                            generated_image=f"generated/{filename}",
+                            generated_image=f"generated/{fname}",
                             category="outdoors"
                         )
 
+                    # Update subscription credits
                     subscription.used_credits += num_designs
                     subscription.total_credits_used_all_time += num_designs
                     subscription.save()
 
+                    # Update daily credit usage
                     today = date.today()
                     credit_entry, created = CreditUsage.objects.get_or_create(
                         user=user,
@@ -1712,131 +1070,224 @@ async def generate_outdoor_design(
             await save_db_changes()
 
         except Exception as e:
-            for fname in generated_filenames:
-                await sync_to_async(os.remove)(generated_path / fname)
-            if original_path.exists():
-                await sync_to_async(os.remove)(original_path)
+            # Cleanup on DB error
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
             raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
 
-        # Step 7: Response
+        # Step 7: Return S3 URLs
+        uploaded_url = get_file_url(original_s3_key)
+        generated_urls = [get_file_url(get_generated_path(f)) for f in generated_filenames]
+
         return {
             "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": [f"/static_generated/{f}" for f in generated_filenames],
+            "original_image": uploaded_url,
+            "designs": generated_urls,
             "credits": {
-                "remaining": subscription.balance_credits,
+                "remaining": subscription.total_credits - subscription.used_credits,
                 "used": subscription.used_credits,
                 "total": subscription.total_credits
             },
-            "message": "Designs generated successfully"
+            "message": "Outdoor designs generated successfully"
         }
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-    
-"""@router.post("/generate-outdoor-design/")
-async def generate_outdoor_design(
-    image: UploadFile = File(...),
-    space_type: OutdoorSpaceType = Form(...),
-    design_style: OutdoorDesignStyle = Form(...),
-    ai_strength: str = Form("medium"),
-    num_designs: int = Form(1, ge=1, le=12)
+
+@router.post("/generate/more-designs")
+async def generate_more_designs(
+    user_id: str = Form(...),
+    category: Literal["interiors", "exteriors", "outdoors"] = Form(...),
+    type_detail: str = Form(...),           # e.g., "living room", "front side", "backyard"
+    style: str = Form(...),
+    ai_strength: AIStylingStrength = Form("medium"),
+    uploaded_image: UploadFile = File(...),
+    num_designs: int = Form(2, ge=1, le=6)
 ):
+    """
+    Unified "Generate More Designs" endpoint that works for interiors, exteriors, and outdoors
+    using the same uploaded image and parameters.
+    """
+    from datetime import date
+    from appln.models import UserData, UserSubscription, UserDesignHistory, CreditUsage
+
+    # Re-use existing configs based on category
+    if category == "interiors":
+        STYLE_CONFIGS_TO_USE = STYLE_CONFIGS
+        STRENGTH_CONFIG_TO_USE = STRENGTH_CONFIG
+    elif category == "exteriors":
+        STYLE_CONFIGS_TO_USE = EXTERIOR_STYLE_CONFIGS
+        STRENGTH_CONFIG_TO_USE = EXTERIOR_STRENGTH_CONFIG
+    elif category == "outdoors":
+        STYLE_CONFIGS_TO_USE = OUTDOOR_STYLE_CONFIGS
+        STRENGTH_CONFIG_TO_USE = OUTDOOR_STRENGTH_CONFIG
+    else:
+        raise HTTPException(status_code=400, detail="Invalid category. Must be 'interiors', 'exteriors', or 'outdoors'")
+
     try:
-        logger.info(f"Starting generation for {space_type.value} with style {design_style.value}")
-        
-        # Validate inputs
-        if num_designs < 1 or num_designs > 12:
-            raise ValueError("Number of designs must be between 1 and 12")
-            
-        # Setup directories
-        from pathlib import Path
+        # === Step 1: User & Subscription ===
+        user = await sync_to_async(UserData.objects.get)(id=user_id)
+        subscription = await sync_to_async(UserSubscription.objects.filter(user=user).first)()
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Subscription not found")
 
-        BASE_DIR = Path(__file__).parent.parent
-        uploads_dir = BASE_DIR / "fastapi_app" / "uploads"
-        generated_dir = BASE_DIR / "fastapi_app" / "generated"
+        # === Step 2: Credit Check ===
+        remaining_credits = subscription.total_credits - subscription.used_credits
+        if remaining_credits < num_designs:
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "message": "Not enough credits",
+                    "available": remaining_credits,
+                    "required": num_designs
+                }
+            )
 
-        
-        
-        uploads_dir.mkdir(exist_ok=True, parents=True)
-        generated_dir.mkdir(exist_ok=True, parents=True)
-        
-        # Save original image
-        file_ext = os.path.splitext(image.filename)[1].lower()
-        if file_ext not in ('.jpg', '.jpeg', '.png'):
-            raise ValueError("Only JPG/PNG images are supported")
-            
-        original_filename = f"original_{uuid.uuid4().hex}{file_ext}"
-        original_path = uploads_dir / original_filename
-        
+        # === Step 3: Validate & Save Uploaded Image to S3 ===
+        file_ext = os.path.splitext(uploaded_image.filename)[1].lower()
+        if file_ext not in ['.jpg', '.jpeg', '.png']:
+            raise HTTPException(status_code=400, detail="Only JPG, JPEG, and PNG files are allowed")
+
+        original_filename = f"more_{uuid.uuid4().hex}{file_ext}"
+        original_s3_key = get_upload_path(original_filename)
+
+        image_content = await uploaded_image.read()
+        processed_image_bytes, _ = await resize_to_allowed_dimensions(image_content)
+        await save_bytes_file(processed_image_bytes, original_s3_key)
+
+        # === Step 4: Build Prompt based on Category ===
+        style_key = style.lower()
+        if category == "interiors":
+            if style_key not in STYLE_CONFIGS_TO_USE:
+                raise HTTPException(status_code=400, detail=f"Invalid style '{style}' for interiors")
+            style_config = STYLE_CONFIGS_TO_USE[style_key]
+            prompt = style_config["prompt"].format(room_type=type_detail.lower(), style=style_key)
+            negative_prompt = style_config["negative_prompt"]
+        elif category == "exteriors":
+            if style_key not in EXTERIOR_STYLE_CONFIGS:
+                raise HTTPException(status_code=400, detail=f"Invalid style '{style}' for exteriors")
+            style_config = EXTERIOR_STYLE_CONFIGS[style_key]
+            prompt = style_config["prompt"].format(angle=type_detail.lower())
+            negative_prompt = style_config["negative_prompt"]
+        else:  # outdoors
+            if style_key not in OUTDOOR_STYLE_CONFIGS:
+                raise HTTPException(status_code=400, detail=f"Invalid style '{style}' for outdoors")
+            style_config = OUTDOOR_STYLE_CONFIGS[style_key]
+            space_type_formatted = type_detail.lower().replace("_", " ").replace("/", " ")
+            prompt = style_config["prompt"].format(space_type=space_type_formatted.title(), style=style_key.replace("_", " "))
+            negative_prompt = style_config["negative_prompt"] + ", blurry, low quality, distorted"
+
+        strength_level = ai_strength.lower()
+        params = STRENGTH_CONFIG_TO_USE[strength_level]
+
+        # === Step 5: Generate Designs (using aiohttp like outdoor endpoint) ===
+        async def _generate_one():
+            data = aiohttp.FormData()
+            data.add_field('init_image', processed_image_bytes, filename='input.png', content_type='image/png')
+            data.add_field('init_image_mode', 'IMAGE_STRENGTH')
+            data.add_field('image_strength', str(params["image_strength"]))
+            data.add_field('text_prompts[0][text]', prompt + ", professional photography, 8K, highly detailed")
+            data.add_field('text_prompts[0][weight]', '1.2')
+            data.add_field('text_prompts[1][text]', negative_prompt)
+            data.add_field('text_prompts[1][weight]', '-1.0')
+            data.add_field('cfg_scale', str(params["cfg_scale"]))
+            data.add_field('steps', str(params["steps"]))
+            data.add_field('samples', '1')
+            data.add_field('seed', str(random.randint(1, 1000000)))
+            data.add_field('style_preset', 'photographic')
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(STABILITY_API_URL, headers=HEADERS, data=data, timeout=90) as resp:
+                    if resp.status != 200:
+                        error_text = await resp.text()
+                        raise ValueError(f"Stability API error {resp.status}: {error_text}")
+                    result = await resp.json()
+                    return result["artifacts"][0]
+
+        tasks = [_generate_one() for _ in range(num_designs)]
+        results = await asyncio.gather(*tasks)
+
+        # === Step 6: Save Generated Images to S3 ===
+        generated_filenames = []
         try:
-            with open(original_path, "wb") as f:
-                shutil.copyfileobj(image.file, f)
+            for artifact in results:
+                filename = f"more_{uuid.uuid4().hex}.png"
+                s3_key = get_generated_path(filename)
+
+                img_bytes = base64.b64decode(artifact["base64"])
+                if subscription.current_plan == "basic":
+                    img_bytes = add_watermark_to_image(img_bytes)
+
+                await save_bytes_file(img_bytes, s3_key)
+                generated_filenames.append(filename)
         except Exception as e:
-            raise ValueError(f"Failed to save image: {str(e)}")
-        
-        # Process image
+            # Cleanup generated files on failure
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
+            raise HTTPException(status_code=500, detail=f"Failed to save generated images: {str(e)}")
+
+        # === Step 7: Update DB + Enforce 10-entry limit ===
         try:
-            image_bytes, _ = await outdoor_resize_to_allowed_dimensions(original_path)
-            if not image_bytes:
-                raise ValueError("Image processing failed - empty result")
+            @sync_to_async
+            def db_update():
+                with transaction.atomic():
+                    entries = UserDesignHistory.objects.filter(user=user).order_by('created_at')
+                    excess = entries.count() + len(generated_filenames) - 10
+                    if excess > 0:
+                        for old in entries[:excess]:
+                            try:
+                                remove_file(get_upload_path(os.path.basename(old.uploaded_image.name)))
+                                remove_file(get_generated_path(os.path.basename(old.generated_image.name)))
+                            except: pass
+                            old.delete()
+
+                    for fname in generated_filenames:
+                        UserDesignHistory.objects.create(
+                            user=user,
+                            uploaded_image=f"uploads/{original_filename}",
+                            generated_image=f"generated/{fname}",
+                            category=category + "s"  # "interiors", "exteriors", "outdoors"
+                        )
+
+                    subscription.used_credits += num_designs
+                    subscription.total_credits_used_all_time += num_designs
+                    subscription.save()
+
+                    today = date.today()
+                    usage, _ = CreditUsage.objects.get_or_create(user=user, date=today, defaults={"credits_used": 0})
+                    usage.credits_used += num_designs
+                    usage.save()
+
+            await db_update()
         except Exception as e:
-            raise ValueError(f"Image processing error: {str(e)}")
-        
-        # Prepare config
-        design_config = {
-            "style": design_style.value,
-            "space_type": space_type.value
-        }
-        
-        # Generate designs
-        generated_urls = []
-        tasks = [
-            generate_outdoor_design_variation(
-                image_bytes,
-                design_config,
-                ai_strength.lower()
-            ) for _ in range(num_designs)
-        ]
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Process results
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Design {i} failed: {str(result)}")
-                continue
-                
-            filename = f"generated_{uuid.uuid4().hex}.png"
-            filepath = generated_dir / filename
-            
-            try:
-                with open(filepath, "wb") as f:
-                    f.write(base64.b64decode(result["base64"]))
-                generated_urls.append(f"/static_generated/{filename}")
-            except Exception as e:
-                logger.error(f"Failed to save design {i}: {str(e)}")
-        
-        if not generated_urls:
-            raise ValueError("All design generations failed")
-            
+            # Cleanup on DB failure
+            for f in generated_filenames:
+                await remove_file(get_generated_path(f))
+            await remove_file(original_s3_key)
+            raise HTTPException(status_code=500, detail=f"Database update failed: {str(e)}")
+
+        # === Step 8: Return URLs ===
+        original_url = get_file_url(original_s3_key)
+        design_urls = [get_file_url(get_generated_path(f)) for f in generated_filenames]
+
         return {
             "success": True,
-            "original_image": f"/static_uploads/{original_filename}",
-            "designs": generated_urls,
-            "metadata": {
-                "space_type": space_type.value,
-                "design_style": design_style.value,
-                "num_designs": num_designs,
-                "styling_strength": ai_strength
-            }
+            "original_image": original_url,
+            "designs": design_urls,
+            "credits": {
+                "remaining": subscription.total_credits - subscription.used_credits,
+                "used": subscription.used_credits,
+                "total": subscription.total_credits
+            },
+            "message": f"Successfully generated {num_designs} more design(s)"
         }
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        raise HTTPException(400, detail=str(e))
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        raise HTTPException(500, detail="Internal server error")"""
+        logging.error(f"More designs error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")

@@ -5,13 +5,15 @@ from typing import List
 router = APIRouter()
 connections: List[WebSocket] = []
 
-@router.websocket("/ws/admin/notifications")
+@router.websocket("/api/ws/admin/notifications")
 async def admin_notifications_ws(websocket: WebSocket):
     await websocket.accept()
     connections.append(websocket)
     try:
         while True:
-            await websocket.receive_text()  # keep connection alive
+            msg = await websocket.receive_text()
+            if msg == "ping":
+                await websocket.send_text("pong")   # KEEP ALIVE # keep connection alive
     except Exception:
         if websocket in connections:
             connections.remove(websocket)

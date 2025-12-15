@@ -19,7 +19,7 @@ export default function ImageGeneration() {
   const [formData, setFormData] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
 
-  const backendBaseUrl = "https://www.stacklycloud.com/api/";
+  const backendBaseUrl = "https://www.ai.stacklycloud.com/api/";
 
   // Track if this is an initial load
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -193,11 +193,17 @@ export default function ImageGeneration() {
       );
 
       if (response.data.success === true) {
-        const newImages = response.data.designs.map((url, index) => ({
-          url: backendBaseUrl + url,
-          id: `more-design-${index}-${Date.now()}`,
-          label: `Additional Design ${generatedImages.length + index + 1}`,
-        }));
+        const newImages = response.data.designs.map((url, index) => {
+          let processedUrl = url;
+          if (processedUrl && !processedUrl.startsWith("http") && !processedUrl.startsWith("blob:")) {
+            processedUrl = backendBaseUrl + processedUrl;
+          }
+          return {
+            url: processedUrl,
+            id: `more-design-${index}-${Date.now()}`,
+            label: `Additional Design ${generatedImages.length + index + 1}`,
+          };
+        });
         setGeneratedImages([...generatedImages, ...newImages]);
       }
     } catch (error) {

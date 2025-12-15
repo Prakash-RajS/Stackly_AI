@@ -125,7 +125,7 @@ export default function BasicForm() {
                    sm:text-[13px] sm:leading-[15px]
                    max-[440px]:text-[12px] max-[440px]:leading-[14px]"
       >
-        Allowed formats: PNG, JPEG, JPG (Max size: 25MB)
+        Allowed formats: PNG, JPEG, JPG (Max size: 5MB)
       </p>
     </div>
 
@@ -195,17 +195,17 @@ export default function BasicForm() {
 
     {/* Modal */}
     {showGuide && (
-      <div className="absolute top-[50px] left-1/2 -translate-x-1/2 w-[320px] bg-[#2A1256] border border-[#C99FFF] rounded-lg p-4 shadow-lg z-10
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[320px] bg-[#2A1256] border border-[#C99FFF] rounded-lg p-4 shadow-lg z-10
                       max-[440px]:w-[280px]">
         <h3 className="text-white font-semibold mb-2 text-center text-[16px] max-[440px]:text-[14px]">
           Upload Requirements
         </h3>
-        <ul className="text-sm text-white space-y-1 max-[440px]:text-[12px]">
-          <li>• Format: JPG, PNG, or WebP</li>
-          <li>• Size: Max 25MB per image</li>
-          <li>• Resolution: At least 1024×768px</li>
-          <li>• Aspect ratio: Between 4:3 and 16:9</li>
-        </ul>
+        <ul className="text-sm text-white space-y-1 max-[440px]:text-[12px] leading-[150%]">
+  <li>• Supported formats: JPG, PNG, WebP</li>
+  <li>• Maximum file size: 5MB</li>
+  <li>• Resolution: 1024×768px or higher</li>
+  <li>• Allowed aspect ratio: 4:3 to 16:9</li>
+</ul>
         <div className="mt-3 pt-2 border-t border-[#C99FFF40]">
           <p className="text-xs text-[#C99FFF] text-center max-[440px]:text-[11px]">
             For best results, use well-lit photos without filters

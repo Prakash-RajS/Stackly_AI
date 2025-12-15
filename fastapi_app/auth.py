@@ -813,6 +813,7 @@ async def get_me(user=Depends(get_current_user)):
     }
 
 
+from fastapi_app.storage import get_file_url
 class DesignResponse(BaseModel):
     id: int
     uploaded_image: str
@@ -821,22 +822,32 @@ class DesignResponse(BaseModel):
     is_favorite: bool
     category: str
 
-    # class Config:
-    #     orm_mode = True
     model_config = {
         "from_attributes": True
     }
 
 def serialize_design(design: UserDesignHistory):
+    """Convert Django model → proper public S3 URLs"""
+    uploaded_url = ""
+    generated_url = ""
+
+    if design.uploaded_image:
+        # uploaded_image.name → "uploads/original_abc123.jpg"
+        s3_key = str(design.uploaded_image.name).replace("uploads/", "uploads/")  # ensure correct prefix
+        uploaded_url = get_file_url(s3_key)
+
+    if design.generated_image:
+        s3_key = str(design.generated_image.name).replace("generated/", "generated/")
+        generated_url = get_file_url(s3_key)
+
     return {
         "id": design.id,
-        "uploaded_image": f"/media/{design.uploaded_image.name}" if design.uploaded_image else "",
-        "generated_image": f"/media/{design.generated_image.name}" if design.generated_image else "",
+        "uploaded_image": uploaded_url,
+        "generated_image": generated_url,
         "created_at": design.created_at,
         "is_favorite": design.is_favorite,
         "category": design.category
     }
-
 
 @router.get("/designs", response_model=List[DesignResponse])
 async def get_user_designs(
@@ -845,24 +856,39 @@ async def get_user_designs(
     is_favorite: bool | None = Query(None)
 ):
     print(f"Fetching designs for user: {user.id}")
+
     query = UserDesignHistory.objects.filter(user=user)
     if category:
         query = query.filter(category=category)
     if is_favorite is not None:
         query = query.filter(is_favorite=is_favorite)
-    designs_qs = await sync_to_async(list)(query.order_by("-created_at")[:10])
+
+    designs_qs = await sync_to_async(list)(
+        query.order_by("-created_at")[:20]  # Increased limit for safety
+    )
+
     print(f"Found {len(designs_qs)} designs")
     return [serialize_design(d) for d in designs_qs]
 
-@router.patch("/designs/{design_id}/favorite", response_model=dict)
-async def toggle_favorite_design(design_id: int, user=Depends(get_current_user)):
-    print(f"PATCH /designs/{design_id}/favorite for user: {user.id}")
+
+@router.patch("/designs/{design_id}/favorite")
+async def toggle_favorite_design(
+    design_id: int,
+    user=Depends(get_current_user)
+):
     try:
-        design = await sync_to_async(UserDesignHistory.objects.get)(id=design_id, user=user)
+        design = await sync_to_async(
+            UserDesignHistory.objects.select_related().get
+        )(id=design_id, user=user)
+
         design.is_favorite = not design.is_favorite
         await sync_to_async(design.save)()
-        print(f"✅ Updated design {design_id} to is_favorite: {design.is_favorite}")
-        return {"id": design.id, "is_favorite": design.is_favorite}
+
+        return {
+            "success": True,
+            "id": design.id,
+            "is_favorite": design.is_favorite
+        }
+
     except ObjectDoesNotExist:
-        print(f"❌ Design {design_id} not found for user {user.id}")
         raise HTTPException(status_code=404, detail="Design not found")

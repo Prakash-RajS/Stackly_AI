@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import star from "../../assets/home/Big star.png";
 import Faqimg1 from "../../assets/home/FAQ.png";
 import Faqimg2 from "../../assets/afterHome/study2.png";
-import Faqimg3 from "../../assets/afterHome/G2.png";
-import Faqimg4 from "../../assets/afterHome/G3.png";
+import Faqimg3 from "../../assets/afterHome/g2.png";
+import Faqimg4 from "../../assets/afterHome/g3.png";
 import Faqimg5 from "../../assets/afterHome/BedRoom6.png";
 import Faqimg6 from "../../assets/afterHome/study3.png";
 

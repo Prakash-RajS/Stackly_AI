@@ -500,7 +500,7 @@ const AfterContactForm = () => {
     setSubmitError(null);
 
     try {
-      await axios.post("https://www.stacklycloud.com/api/contact", {
+      await axios.post("https://www.ai.stacklycloud.com/api/contact", {
         ...formData,
         source: "contact_us",
       });

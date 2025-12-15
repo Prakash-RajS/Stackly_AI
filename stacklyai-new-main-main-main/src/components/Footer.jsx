@@ -138,7 +138,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="/api"
+                href="/apiconnect"
                 className="font-['Poppins'] text-[10px] sm:text-xs xl:text-[16px] uppercase tracking-wide xl:tracking-[2px]"
                 style={{
                   background: "linear-gradient(to right, #FFFFFF, #555555)",
@@ -201,7 +201,7 @@ export default function Footer() {
             </li>
             <li>
               <a
-                href="/api"
+                href="/apiconnect"
                 className="font-['Poppins'] text-[10px] sm:text-xs xl:text-[16px] uppercase tracking-wide xl:tracking-[2px]"
                 style={{
                   background: "linear-gradient(to right, #FFFFFF, #555555)",

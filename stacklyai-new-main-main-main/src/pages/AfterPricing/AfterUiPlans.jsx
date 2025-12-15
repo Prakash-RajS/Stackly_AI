@@ -25,7 +25,7 @@ export default function AfterUiPlans() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await fetch("https://www.stacklycloud.com/admin/api/plans/");
+        const response = await fetch("https://www.ai.stacklycloud.com/stackly_admin/api/plans/");
         if (!response.ok) {
           throw new Error("Failed to fetch plans");
         }

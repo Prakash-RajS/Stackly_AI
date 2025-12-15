@@ -964,58 +964,32 @@
     });
   </script>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-    const markReadBtn = document.getElementById('mark-all-read');
-    if (markReadBtn) {
-        markReadBtn.addEventListener('click', function() {
-            fetch('/notifications/mark_all_read/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Remove "unread" classes
-                    document.querySelectorAll('.notification-item.unread').forEach(item => {
-                        item.classList.remove('unread');
-                    });
-                    // Remove the notification dot
-                    document.querySelector('.notification-icon .dots')?.remove();
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        });
-    }
-});
-document.addEventListener('DOMContentLoaded', function() {
-    const markReadBtn = document.getElementById('mark-all-read');
-    if (markReadBtn) {
-        markReadBtn.addEventListener('click', function() {
-            fetch('/notifications/mark_all_read/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Remove "unread" classes
-                    document.querySelectorAll('.notification-item.unread').forEach(item => {
-                        item.classList.remove('unread');
-                    });
-                    // Remove the notification dot
-                    document.querySelector('.notification-icon .dots')?.remove();
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        });
-    }
-});
+document.addEventListener("DOMContentLoaded", () => {
+    const markAllBtn = document.getElementById("mark-all-read");
 
-  </script>
+    if (markAllBtn) {
+        markAllBtn.addEventListener("click", () => {
+            fetch("/notifications/mark_all_read/", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "success") {
+
+                    document.querySelectorAll(".notification-item.unread")
+                        .forEach(item => item.classList.remove("unread"));
+
+                    const dot = document.querySelector(".dots");
+                    if (dot) dot.style.display = "none";
+                }
+            })
+        });
+    }
+});
+</script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
     const dashboardList = document.getElementById("dashboard-notifications");
@@ -1024,7 +998,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const markAllBtn = document.getElementById("mark-all-read");
     const notifWrapper = document.querySelector(".notification-icon");
 
-    // Toggle dropdown
     if (notifWrapper) {
         notifWrapper.addEventListener("click", e => {
             e.stopPropagation();
@@ -1040,59 +1013,120 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("show"));
     });
 
-    // WebSocket
-    const ws = new WebSocket("ws://127.0.0.1:8000/ws/admin/notifications");
+    let ws = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000;
 
-    ws.onopen = () => console.log("✅ Connected to notifications WebSocket");
-    ws.onmessage = event => {
+    function initWebSocket() {
+        if (ws) ws.close();
+
+        const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const wsHost = window.location.host;
+        const wsPath = "/api/ws/admin/notifications";
+
         try {
-            const data = JSON.parse(event.data);
+            ws = new WebSocket(`${wsProtocol}${wsHost}${wsPath}`);
 
-            const itemHTML = `
-                <div class="notification-item unread">
-                    <div class="notification-icon">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M6 1V6M6 6V11M6 6H11M6 6H1" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                    <div class="notification-content">
-                        <div class="notification-title">${data.message}</div>
-                        <div class="notification-time">just now</div>
-                    </div>
-                </div>
-            `;
+            ws.onopen = () => {
+                reconnectAttempts = 0;
+                startHeartbeat();
+            };
 
-            if (dashboardList) dashboardList.insertAdjacentHTML("afterbegin", itemHTML);
-            if (headerList) headerList.insertAdjacentHTML("afterbegin", itemHTML);
+            ws.onmessage = (event) => {
+                if (event.data === "pong") return;
 
-            if (notifDot) notifDot.style.display = "block";
+                try {
+                    const data = JSON.parse(event.data);
+                    addNotificationToUI(data);
+                } catch (err) {}
+            };
 
-        } catch (err) {
-            console.error("WebSocket message error:", err);
+            ws.onerror = () => {};
+
+            ws.onclose = () => {
+                stopHeartbeat();
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    const delay = reconnectDelay * Math.pow(2, reconnectAttempts);
+                    setTimeout(() => {
+                        reconnectAttempts++;
+                        initWebSocket();
+                    }, delay);
+                }
+            };
+
+        } catch (error) {}
+    }
+
+    let heartbeatInterval = null;
+
+    function startHeartbeat() {
+        heartbeatInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send("ping");
+            }
+        }, 25000);
+    }
+
+    function stopHeartbeat() {
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
         }
-    };
+    }
 
-    ws.onclose = () => console.log("❌ WebSocket connection closed");
+    function addNotificationToUI(data) {
+        const itemHTML = `
+            <div class="notification-item unread">
+                <div class="notification-icon">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M6 1V6M6 6V11M6 6H11M6 6H1" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">${data.message}</div>
+                    <div class="notification-time">just now</div>
+                </div>
+            </div>
+        `;
 
-    // Mark all as read
+        if (dashboardList) dashboardList.insertAdjacentHTML("afterbegin", itemHTML);
+        if (headerList) headerList.insertAdjacentHTML("afterbegin", itemHTML);
+
+        if (notifDot) notifDot.style.display = "block";
+    }
+
+    initWebSocket();
+
     if (markAllBtn) {
         markAllBtn.addEventListener("click", () => {
             fetch("/notifications/mark_all_read/", {
                 method: "POST",
-                headers: { "X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/json" }
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json"
+                }
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === "success") {
-                    document.querySelectorAll(".notification-item.unread").forEach(el => el.classList.remove("unread"));
+                    document.querySelectorAll(".notification-item.unread")
+                        .forEach(el => el.classList.remove("unread"));
                     if (notifDot) notifDot.style.display = "none";
                 }
             })
-            .catch(err => console.error(err));
+            .catch(() => {});
         });
     }
+
+    window.addEventListener('beforeunload', () => {
+        if (ws) ws.close();
+        stopHeartbeat();
+    });
 });
 </script>
+
+
 
 </body>
 

@@ -38,7 +38,7 @@ export default function HeroForgetPg() {
   setIsLoading(true);
 
   try {
-    const res = await axios.post("https://www.stacklycloud.com/api/forget-password/send-otp", { email });
+    const res = await axios.post("https://www.ai.stacklycloud.com/api/forget-password/send-otp", { email });
 
     localStorage.setItem("resetEmail", email);
 

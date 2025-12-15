@@ -71,7 +71,7 @@ const [loading, setLoading] = useState(false);
     }
 
     try {
-      await axios.post("https://www.stacklycloud.com/api/verify-otp", {
+      await axios.post("https://www.ai.stacklycloud.com/api/verify-otp", {
         email,
         password,   // ✅ include password if backend needs it
         otp: enteredOtp,
@@ -117,7 +117,7 @@ const [loading, setLoading] = useState(false);
     setIsResending(true);
     setError("");
     try {
-      await axios.post("https://www.stacklycloud.com/api/signup-resend-otp", { email });
+      await axios.post("https://www.ai.stacklycloud.com/api/signup-resend-otp", { email });
       setTimer(45);
       setOtp(["", "", "", "", "", ""]);
       toast.info("New OTP sent to your email.");

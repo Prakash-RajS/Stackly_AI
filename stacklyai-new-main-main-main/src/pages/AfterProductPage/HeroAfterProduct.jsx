@@ -36,7 +36,7 @@ export default function HeroAfterProducts() {
       if (filter.category) params.category = filter.category;
       if (filter.isFavorite !== null) params.is_favorite = filter.isFavorite;
 
-      const response = await axios.get("https://www.stacklycloud.com/api/designs", {
+      const response = await axios.get("https://www.ai.stacklycloud.com/api/designs", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -201,7 +201,7 @@ export default function HeroAfterProducts() {
     };
   }, [showDraggable]);
 
-  const baseImageUrl = "https://www.stacklycloud.com/api/";
+  const baseImageUrl = "https://www.ai.stacklycloud.com/api/";
 
   const RoomCard = ({
     roomName,
@@ -226,7 +226,7 @@ export default function HeroAfterProducts() {
     const handleFavoriteToggleLocal = async () => {
       try {
         const response = await axios.patch(
-          `https://www.stacklycloud.com/api/designs/${id}/favorite`,
+          `https://www.ai.stacklycloud.com/api/designs/${id}/favorite`,
           {},
           {
             headers: {
@@ -479,24 +479,21 @@ export default function HeroAfterProducts() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-10">
               {designs.map((design) => (
                 <RoomCard
-                  key={design.id}
-                  roomName={new Date(design.created_at).toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric",
-                    }
-                  )}
-                  originalImage={`${baseImageUrl}${design.uploaded_image}`}
-                  transformedImage={`${baseImageUrl}${design.generated_image}`}
-                  isFavorite={design.is_favorite}
-                  id={design.id}
-                  category={design.category}
-                  onFavoriteToggle={handleFavoriteToggle}
-                  handleShow={handleShow}
-                  handleDownload={handleDownload}
-                  handleFullscreen={handleFullscreen}
-                />
+  key={design.id}
+  roomName={new Date(design.created_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })}
+  originalImage={design.uploaded_image}        // FIXED
+  transformedImage={design.generated_image}    // FIXED
+  isFavorite={design.is_favorite}
+  id={design.id}
+  category={design.category}
+  onFavoriteToggle={handleFavoriteToggle}
+  handleShow={handleShow}
+  handleDownload={handleDownload}
+  handleFullscreen={handleFullscreen}
+/>
               ))}
             </div>
           </div>

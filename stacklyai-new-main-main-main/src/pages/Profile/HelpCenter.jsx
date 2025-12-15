@@ -43,14 +43,14 @@ export default function HelpCenter() {
         if (!token) throw new Error("No authentication token found");
         if (!userId) throw new Error("No user ID found in storage");
 
-        const profileResponse = await axios.get("https://www.stacklycloud.com/api/profile", {
+        const profileResponse = await axios.get("https://www.ai.stacklycloud.com/api/profile", {
           params: { userid: userId },
           headers: { Authorization: `Bearer ${token}` },
         });
 
         const profilePicUrl = profileResponse.data.profile_pic
           ? profileResponse.data.profile_pic.startsWith("/media/profile_pics")
-            ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}`
+            ? `https://www.ai.stacklycloud.com/api/${profileResponse.data.profile_pic}`
             : profileResponse.data.profile_pic
           : Pimage;
 
@@ -104,7 +104,7 @@ export default function HelpCenter() {
 
     try {
       const response = await axios.post(
-        "https://www.stacklycloud.com/api/help-center",
+        "https://www.ai.stacklycloud.com/api/help-center",
         {
           email,
           subject,
@@ -320,6 +320,7 @@ export default function HelpCenter() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Enter Your email"
+                        readOnly
                         className="
                           rounded-[8px] border-[1px] border-[#FFFFFF66] bg-[#FFFFFF1F] border-solid 
                           text-white placeholder-white focus:outline-none focus:border-[#9747FF]

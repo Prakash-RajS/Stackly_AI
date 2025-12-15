@@ -93,7 +93,7 @@ export default function PricingFaq() {
     {
       question: "What image formats do StacklyAI APIs support?",
       answer:
-        "Our APIs support common formats like JPG, PNG, and GIF, with additional formats available in enterprise plans.",
+        "Our APIs support common formats like JPG, PNG, and JPGE, with additional formats available in enterprise plans.",
     },
     {
       question: "Can I upgrade my plan at any time?",
@@ -103,7 +103,7 @@ export default function PricingFaq() {
     {
       question: "Is there a free trial for premium features?",
       answer:
-        "Yes, we offer a 14-day free trial for all premium features so you can test them before committing.",
+        "Yes, we offer 10 credits free trial for all premium features so you can test them before committing.",
     },
 
     // Group 3: API Integration (6 items)

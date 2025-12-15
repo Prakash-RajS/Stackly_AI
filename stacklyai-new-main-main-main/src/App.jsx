@@ -93,7 +93,7 @@ export default function App() {
             {/* Conditional Pages */}
             <Route path="/products" element={userInfo.userId ? <AfterProducts /> : <Products />} />
             <Route path="/pricing" element={userInfo.userId ? <AfterPricing /> : <Pricing />} />
-            <Route path="/api" element={userInfo.userId ? <AfterApi /> : <Api />} />
+            <Route path="/apiconnect" element={userInfo.userId ? <AfterApi /> : <Api />} />
             <Route path="/contact" element={userInfo.userId ? <AfterContact /> : <Contact />} />
             <Route path="/afteruiplan" element={<AfterUiPlan />} />
 

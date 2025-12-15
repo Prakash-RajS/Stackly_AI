@@ -54,7 +54,7 @@ export default function SignIn() {
     setLoading(true);
 
     const res = await axios.post(
-      "https://www.stacklycloud.com/api/login",
+      "https://www.ai.stacklycloud.com/api/login",
       {
         email: formData.email,
         password: formData.password,
@@ -319,13 +319,13 @@ export default function SignIn() {
                   </div>
                   <div className="h-[24px] flex justify-between items-center flex-nowrap">
                     <div className="flex items-center gap-2 flex-nowrap">
-                      <input
+                      {/* <input
                         type="checkbox"
                         className="w-4 max-[1280px]:w-3.5 h-4 max-[1280px]:h-3.5"
                       />
                       <span className="text-white text-[16px] max-[1280px]:text-[14px] max-[481px]:text-[12px] font-['Poppins'] whitespace-nowrap">
                         Remember me
-                      </span>
+                      </span> */}
                     </div>
                     <Link to="/heroforgetpg">
                       <span className="text-white text-[16px] max-[1280px]:text-[14px] max-[481px]:text-[12px] underline font-['Poppins'] cursor-pointer whitespace-nowrap">
@@ -360,7 +360,7 @@ export default function SignIn() {
 
               <div className="w-[554px] max-[1280px]:w-full h-[44px] max-[1280px]:h-[36px] flex items-center justify-center gap-4 mt-[160px] max-[1280px]:mt-[20px] opacity-100">
                 <div className="w-[202px] max-[1280px]:w-[150px] h-[44px] max-[1280px]:h-[36px] flex justify-between items-center">
-                  <a href="https://www.stacklycloud.com/api/login/google">
+                  <a href="https://www.ai.stacklycloud.com/api/login/google">
                     <button
                       className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                     >
@@ -402,7 +402,7 @@ export default function SignIn() {
                       </svg>
                     </button>
                   </a>
-                  <a href="https://www.stacklycloud.com/api/login/apple">
+                  <a href="https://www.ai.stacklycloud.com/api/login/apple">
                     <button
                       className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                     >
@@ -421,7 +421,7 @@ export default function SignIn() {
                       </svg>
                     </button>
                   </a>
-                  <a href="https://www.stacklycloud.com/api/login/facebook">
+                  <a href="https://www.ai.stacklycloud.com/api/login/facebook">
                     <button
                       className="w-[44px] max-[1280px]:w-[36px] h-[44px] max-[1280px]:h-[36px] bg-white rounded-[38px] opacity-100 shadow-[0px_2px_4px_0px_#00000014] p-[10px] max-[1280px]:p-[8px] flex items-center justify-center gap-[10px] cursor-pointer"
                     >

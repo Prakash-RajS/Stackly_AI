@@ -43,7 +43,7 @@ export default function AfterConformationPage() {
       // Fallback: Fetch plan data from API if state is not available
       const fetchPlan = async () => {
         try {
-          const response = await fetch("https://www.stacklycloud.com/admin/api/plans/");
+          const response = await fetch("https://www.ai.stacklycloud.com/stackly_admin/api/plans/");
           if (!response.ok) {
             throw new Error("Failed to fetch plans");
           }
@@ -110,7 +110,7 @@ export default function AfterConformationPage() {
         style={{ backgroundImage: `url(${ConfirmPG})` }}
       >
         {/* Back Button */}
-        <Link to="/api#afteruiplan" className="z-10">
+        <Link to="/apiconnect#afteruiplan" className="z-10">
           <div className="w-10 h-10 md:w-12 md:h-12 lg:w-[52px] lg:h-[52px] border-[1px] border-solid border-[#FFFFFF33] rounded-full p-2 md:p-3 lg:px-[17px] lg:py-[8px] bg-[#FFFFFF1F] flex justify-center items-center">
             <img src={Arrow} alt="back" className="w-4 h-4 md:w-5 md:h-5 lg:w-auto lg:h-auto" />
           </div>

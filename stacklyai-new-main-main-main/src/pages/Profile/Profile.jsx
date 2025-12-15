@@ -11,7 +11,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
 const handleClick = () => {
-  navigate("/api", { state: { scrollToAfterUiPlan: true } });
+  navigate("/apiconnect", { state: { scrollToAfterUiPlan: true } });
     setTimeout(() => {
       const element = document.getElementById("afteruiplan");
       if (element) element.scrollIntoView({ behavior: "smooth" });

@@ -216,6 +216,7 @@ from asgiref.sync import sync_to_async
 from fastapi_app.forget_password import router as forgot_password_router
 from fastapi_app.notifications import router as notifications_router
 from pathlib import Path
+from fastapi_app.download import router as download_router
 
 # Setup paths and environment
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fastapi_app'))
@@ -234,7 +235,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.stacklycloud.com", "http://localhost:5173"],
+    allow_origins=["https://www.ai.stacklycloud.com", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -251,6 +252,7 @@ app.include_router(help_center.router)
 app.include_router(notifications_router)
 app.include_router(forgot_password_router)
 app.include_router(api.router)
+app.include_router(download_router)
 
 BASE_DIR = Path(__file__).parent.parent  # Goes up one level from fastapi_app/
 uploads_path = BASE_DIR / "fastapi_app" / "uploads"
@@ -382,6 +384,4 @@ async def get_profile_by_userid(userid: str = Query(...)):
         "profile_pic": profile_pic_url,
     })
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the Image Generation API!"}
+

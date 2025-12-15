@@ -19,7 +19,6 @@ import Upload from "../../assets/home/upload.png";
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 const CloseIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E";
-
 export default function Form({ selectedImage }) {
   const { userInfo } = useContext(UserContext);
   const navigate = useNavigate();
@@ -31,27 +30,25 @@ export default function Form({ selectedImage }) {
   const [imgFile, setImgFile] = useState(null);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [originalImageUrl, setOriginalImageUrl] = useState(null);
-  const backendBaseUrl = "https://www.stacklycloud.com/api/";
+  const backendBaseUrl = "https://www.ai.stacklycloud.com/api/";
+  const [uploadError, setUploadError] = useState("");
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [strength, setStrength] = useState("LOW");
-
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [formData, setFormData] = useState({
     roomType: "",
     roomStyle: "",
-    numDesigns: "1",
+    numDesigns: "",
     aiStrength: "low",
     houseAngle: "",
     spaceType: "",
   });
-
   const [imgURL, setImgURL] = useState(null);
-
   const tabs = [
     { name: "Interiors", icon: Interior },
     { name: "Exteriors", icon: Home },
     { name: "Outdoors", icon: Tree },
   ];
-
   const roomTypes = {
     Interiors: [
       "classic", "modern", "minimal", "scandinavian", "contemporary",
@@ -69,72 +66,118 @@ export default function Form({ selectedImage }) {
       "farmhouse", "cottage garden", "industrial", "beach",
     ],
   };
-
   const styles = {
     Interiors: [
       "Living room", "Bedroom", "Kitchen", "Home office", "Dining room",
-      "Study room", "Family room", "Kid room", "Balcony",
+      "Study room", "Family room", "Kid room", "Balcony"
     ],
-    Exteriors: ["Front Elevation", "Rear Elevation", "East Elevation", "West Elevation" , "North Elevation" , "South Elevation" , "Patio View" , "Terrace Side" , "Rear Elevation" , "Outer Facade"],
-    Outdoors: [
-      "Front Yard", "Backyard", "Balcony", "Terrace/Rooftop",
-      "Driveway/Parking", "Walkway/Path", "Lounge", "Porch",
-      "Fence", "Garden",
-    ],
+    Exteriors: ["front side", "back side", "left side", "right side"],
+   Outdoors: [
+  "front yard", "backyard", "balcony", "terrace/rooftop",
+  "driveway/parking", "walkway/path", "lounge", "porch",
+  "fence", "garden"
+],
   };
-
+const [credits, setCredits] = useState({
+  used: 0,
+  total: 0
+});
+useEffect(() => {
+  const fetchCredits = async () => {
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+      const response = await axios.get(
+        `https://www.ai.stacklycloud.com/api/subscription`,
+        {
+          params: { userid: userId },
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+      const data = response.data;
+      setCredits({
+        used: data.used_credits,
+        total: data.total_credits
+      });
+    } catch (error) {
+      console.error("Failed to fetch credits", error);
+    }
+  };
+  fetchCredits();
+}, []);
   // Simple scroll functions
   const handleNext = () => {
     if (sliderRef.current) {
       const scrollAmount = 200; // Adjust scroll distance as needed
-      sliderRef.current.scrollBy({ 
-        left: scrollAmount, 
-        behavior: 'smooth' 
+      sliderRef.current.scrollBy({
+        left: scrollAmount,
+        behavior: 'smooth'
       });
     }
   };
-
   const handlePrev = () => {
     if (sliderRef.current) {
       const scrollAmount = 200; // Adjust scroll distance as needed
-      sliderRef.current.scrollBy({ 
-        left: -scrollAmount, 
-        behavior: 'smooth' 
+      sliderRef.current.scrollBy({
+        left: -scrollAmount,
+        behavior: 'smooth'
       });
     }
   };
-
   const handleDragOver = (e) => e.preventDefault();
-
   const changeImage = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const fileExt = file.name.toLowerCase().split('.').pop();
-      if (['jpg', 'jpeg', 'png'].includes(fileExt)) {
-        setImgFile(file);
-        const preview = URL.createObjectURL(file);
-        setImgURL(preview);
-      } else {
-        toast.error("Only JPG, JPEG, and PNG formats are accepted");
-      }
+  const file = e.target.files[0];
+  if (file) {
+    const fileExt = file.name.toLowerCase().split('.').pop();
+    // FORMAT CHECK
+    if (!['jpg', 'jpeg', 'png'].includes(fileExt)) {
+      const msg = "Only JPG, JPEG, and PNG formats are accepted!";
+      toast.error(msg);
+      setUploadError(msg);
+      return;
     }
-  };
-
+    // SIZE CHECK (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      const msg = "File size must be less than 5MB.";
+      toast.error(msg);
+      setUploadError(msg);
+      return;
+    }
+    // If valid → clear error
+    setUploadError("");
+    setImgFile(file);
+    const preview = URL.createObjectURL(file);
+    setImgURL(preview);
+  }
+};
   const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const fileExt = file.name.toLowerCase().split('.').pop();
-      if (['jpg', 'jpeg', 'png'].includes(fileExt)) {
-        setImgFile(file);
-        const preview = URL.createObjectURL(file);
-        setImgURL(preview);
-      } else {
-        toast.error("Only JPG, JPEG, and PNG formats are accepted");
-      }
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const fileExt = file.name.toLowerCase().split('.').pop();
+    // FORMAT CHECK
+    if (!['jpg', 'jpeg', 'png'].includes(fileExt)) {
+      const msg = "Only JPG, JPEG, and PNG formats are accepted!";
+      toast.error(msg);
+      setUploadError(msg);
+      return;
     }
-  };
-
+    // SIZE CHECK
+    if (file.size > 5 * 1024 * 1024) {
+      const msg = "File size must be less than 5MB.";
+      toast.error(msg);
+      setUploadError(msg);
+      return;
+    }
+    // Clear error if valid
+    setUploadError("");
+    setImgFile(file);
+    const preview = URL.createObjectURL(file);
+    setImgURL(preview);
+  }
+};
   const handleChange = (value, key) => {
     if (key === "roomType" && activeTab === "Exteriors") {
       setFormData(prev => ({ ...prev, [key]: value }));
@@ -142,7 +185,6 @@ export default function Form({ selectedImage }) {
       setFormData(prev => ({ ...prev, [key]: value.toLowerCase() }));
     }
   };
-
   const handleTabChange = (tabName) => {
     if (tabName === "Upgrade to Unlock") {
       toast.error("Please upgrade your account to access this feature");
@@ -158,49 +200,41 @@ export default function Form({ selectedImage }) {
       });
     }
   };
-
   const toBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result);
     reader.onerror = (err) => reject(err);
   });
-
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     setIsLoading(true);
     setProgress(0);
-
     if (!imgFile) {
       toast.error("Please upload an image first!");
       setIsLoading(false);
       return;
     }
-
     if (!formData.roomStyle) {
       toast.error("Kindly select room style.");
       setIsLoading(false);
       return;
     }
-
     if (!formData.roomType) {
       toast.error("Kindly select room type.");
       setIsLoading(false);
       return;
     }
-
     if (!formData.aiStrength) {
       toast.error("Kindly select AI strength.");
       setIsLoading(false);
       return;
     }
-
     if (!formData.numDesigns) {
       toast.error("Kindly select number of designs.");
       setIsLoading(false);
       return;
     }
-
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 90) {
@@ -210,14 +244,12 @@ export default function Form({ selectedImage }) {
         return prev + 10;
       });
     }, 1000);
-
     try {
       const formDataToSend = new FormData();
       formDataToSend.append("image", imgFile);
       formDataToSend.append("design_style", formData.roomStyle);
       formDataToSend.append("ai_strength", formData.aiStrength);
       formDataToSend.append("num_designs", formData.numDesigns.toString());
-
       let userId = localStorage.getItem("userId");
       if (!userId) {
         try {
@@ -227,18 +259,14 @@ export default function Form({ selectedImage }) {
           userId = null;
         }
       }
-
       if (!userId) {
         toast.error("User not logged in.");
         setIsLoading(false);
         return;
       }
-
       formDataToSend.append("user_id", userId);
-
       let endpoint = "";
       let typeDetail = "";
-
       switch (activeTab) {
         case "Interiors":
           endpoint = "generate-interior-design";
@@ -258,9 +286,8 @@ export default function Form({ selectedImage }) {
         default:
           throw new Error("Invalid design category selected.");
       }
-
       const response = await axios.post(
-        `https://www.stacklycloud.com/api/api/${endpoint}/`,
+        `https://www.ai.stacklycloud.com/api/api/${endpoint}/`,
         formDataToSend,
         {
           onUploadProgress: (progressEvent) => {
@@ -271,22 +298,24 @@ export default function Form({ selectedImage }) {
           },
         }
       );
-
       for (let i = 50; i <= 100; i += 10) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         setProgress(i);
       }
-
       if (response.data.success) {
         const designs = Array.isArray(response.data.designs)
-          ? response.data.designs.map((url) => ({
-              url: url.startsWith("http") ? url : backendBaseUrl + url,
-              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            }))
+          ? response.data.designs.map((url) => {
+              // Extract filename from URL (e.g., from S3 path)
+              const filename = url.split('/').pop();
+              // Construct proxy URL via backend download endpoint
+              const proxyUrl = `${backendBaseUrl}download/${filename}`;
+              return {
+                url: proxyUrl,
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              };
+            })
           : [];
-
         const base64Image = await toBase64(imgFile);
-
         if (formData.numDesigns === "1") {
           setGeneratedImages(designs);
         } else {
@@ -303,7 +332,6 @@ export default function Form({ selectedImage }) {
               numDesigns: formData.numDesigns,
             },
           };
-
           localStorage.setItem("imageGenState", JSON.stringify(navState));
           navigate("/ImageGeneration", { state: navState });
         }
@@ -333,21 +361,81 @@ export default function Form({ selectedImage }) {
     }
   };
 
-  const handleDownload = () => {
-    if (generatedImages.length === 0) return;
-    const url = generatedImages[0].url;
-    fetch(url)
-      .then(response => response.blob())
-      .then(blob => {
+  // Helper to detect image extension from URL
+  const getImageExtension = (url) => {
+    if (!url) return 'png';
+    const match = url.match(/\.(jpeg|jpg|png|gif)$/i);
+    return match ? match[1].toLowerCase() : 'png';
+  };
+
+  // Updated handleDownload with proxy URL (no CORS issues)
+  const handleDownload = async (retries = 3) => {
+    if (!currentImageUrl) {
+      toast.error('No image to download.');
+      return;
+    }
+
+    const downloadImage = async (url, attempt = 1) => {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          cache: 'no-cache',
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        const ext = getImageExtension(url);
+        const filename = `stackly-design-${Date.now()}.${ext}`;
+
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'generated-image.png';
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      })
-      .catch(error => console.error('Download failed:', error));
+        URL.revokeObjectURL(link.href);
+
+        toast.success('Download started!');
+      } catch (error) {
+        console.error(`Download attempt ${attempt} failed:`, error);
+
+        if (attempt < retries) {
+          // Retry on transient failures
+          toast.info(`Retrying download... (${attempt}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          return downloadImage(url, attempt + 1);
+        }
+
+        let userMessage = 'Failed to download image. Please try again.';
+        if (error.message.includes('404')) {
+          userMessage = 'Image not found. Regenerate and try again.';
+        }
+
+        toast.error(userMessage);
+      }
+    };
+
+    await downloadImage(currentImageUrl);
   };
+
+  useEffect(() => {
+    if (generatedImages.length > 0) {
+      setCurrentImageUrl(generatedImages[0].url);
+    }
+  }, [generatedImages]);
+
+  // Optional: Preload image (now via proxy, no CORS)
+  useEffect(() => {
+    if (generatedImages.length > 0 && currentImageUrl) {
+      const img = new Image();
+      img.src = currentImageUrl;
+      img.onload = () => console.log('Image loaded successfully');
+      img.onerror = (e) => console.error('Preview load failed:', e);
+    }
+  }, [currentImageUrl, generatedImages]);
 
   useEffect(() => {
     if (selectedImage) {
@@ -363,12 +451,10 @@ export default function Form({ selectedImage }) {
         });
     }
   }, [selectedImage]);
-
   return (
     <section className="w-full min-h-screen bg-black opacity-100 pt-8 md:pt-[82px] overflow-hidden px-4 sm:px-6 lg:px-8 mt-[-82px] ">
       {/* Header */}
 <div className="flex flex-col items-center justify-center mt-[122px] md:mt-[75px] gap-4 md:gap-[16px]">
-
         <h1 className="text-center text-2xl sm:text-[28px] md:text-[34px] font-[400] leading-[100%] text-white lora-text">
           Elevate Your Space with{" "}
           <span
@@ -380,46 +466,43 @@ export default function Form({ selectedImage }) {
             AI
           </span>
         </h1>
-
         <div className="text-sm sm:text-[16px] md:text-[18px] text-[#6D6D6D] text-center font-poppins font-400 leading-[140%]">
           Upload a photo and let AI create a stunning makeover
         </div>
-
         <div className="text-xs sm:text-[14px] md:text-[16px] text-white text-center font-poppins font-400 leading-[140%]">
-          Free Trial ( 9 of 10 renders left)
-        </div>
+  Free Trial ({credits.total - credits.used} of {credits.total} renders left)
+</div>
       </div>
-
       {/* Tabs */}
-      <div className="w-full max-w-[352px] h-auto flex gap-4 sm:gap-8 md:gap-[72px] mx-auto mt-8">
-        {tabs.map((tab) => (
-          <div
-            key={tab.name}
-            className="flex-1 h-auto flex flex-col gap-2 opacity-100 cursor-pointer"
-            onClick={() => handleTabChange(tab.name)}
-          >
-            <div
-              className={`w-12 h-12 sm:w-14 sm:h-14 md:w-[52px] md:h-[52px] rounded-full border-2 border-solid mx-auto flex items-center justify-center transition-all ${
-                activeTab === tab.name
-                  ? "border-white bg-gradient-to-l from-[#7A1FF133] to-[#8120FF] shadow-[0_0_8px_#8A38F580]"
-                  : "border-[#8A38F533] bg-[#8A38F533] hover:border-blue-300"
-              }`}
-            >
-              <img
-                src={tab.icon}
-                alt={tab.name}
-                className="w-6 h-4 sm:w-7 sm:h-5 md:w-[26px] md:h-[19px] object-contain"
-              />
-            </div>
-            <p className="text-white font-[500] font-poppins text-xs sm:text-sm md:text-[16px] leading-[100%] text-center">
-              {tab.name}
-            </p>
-          </div>
-        ))}
+      {/* Tab Buttons */}
+<div className="w-full max-w-[352px] h-auto flex justify-center gap-4 sm:gap-8 md:gap-[72px] mx-auto mt-8">
+  {tabs.map((tab) => (
+    <div
+      key={tab.name}
+      className="flex-1 h-auto flex flex-col gap-2 opacity-100 cursor-pointer items-center"
+      onClick={() => handleTabChange(tab.name)}
+    >
+      <div
+        className={`w-12 h-12 sm:w-14 sm:h-14 md:w-[52px] md:h-[52px] rounded-full border-2 flex items-center justify-center transition-all ${
+          activeTab === tab.name
+            ? "border-white bg-gradient-to-l from-[#7A1FF133] to-[#8120FF] shadow-[0_0_8px_#8A38F580]"
+            : "border-[#8A38F533] bg-[#8A38F533] hover:border-blue-300"
+        }`}
+      >
+        <img
+          src={tab.icon}
+          alt={tab.name}
+          className="w-6 h-4 sm:w-7 sm:h-5 md:w-[26px] md:h-[19px] object-contain"
+        />
       </div>
-
-      {/* Style Selection Slider - FIXED */}
-    <div className="w-full max-w-6xl mx-auto mt-8 md:mt-10">
+      <p className="text-white font-[500] font-poppins text-xs sm:text-sm md:text-[16px] text-center">
+        {tab.name}
+      </p>
+    </div>
+  ))}
+</div>
+{/* Styles List */}
+<div className="w-full max-w-6xl mx-auto mt-8 md:mt-10">
   <div className="relative flex items-center justify-center gap-4">
     {/* Previous Button */}
     <button
@@ -428,65 +511,43 @@ export default function Form({ selectedImage }) {
       style={{
         width: "32px",
         height: "32px",
-        opacity: 1,
         borderRadius: "40px",
         border: "1px solid #6f558bff",
         background: "#7A1FF133",
         boxShadow: "0px 0px 8px 0px #8A38F51F",
       }}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        style={{ width: "12px", height: "12px" }}
-      >
-        <path
-          d="M15 5l-7 7 7 7"
-          fill="none"
-          stroke="white"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style={{ width: "12px", height: "12px" }}>
+        <path d="M15 5l-7 7 7 7" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </button>
-
-    {/* Style Items - Hide scrollbar */}
-    <div className="flex-1 overflow-hidden">
-      <div 
+    {/* Centered & Scrollable List - Fixed alignment */}
+    <div className="flex-1 overflow-hidden flex justify-center">
+      <div
+        key={activeTab}
         ref={sliderRef}
-        className="flex gap-2 md:gap-4 overflow-x-auto py-2 scroll-smooth"
+        className="flex items-center gap-2 md:gap-4 overflow-x-auto py-2 scroll-smooth hide-scrollbar px-3"
         style={{
-          scrollbarWidth: 'none', // Firefox
-          msOverflowStyle: 'none', // IE and Edge
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
         }}
       >
-        <style>
-          {`
-            .hide-scrollbar::-webkit-scrollbar {
-              display: none; /* Chrome, Safari and Opera */
-            }
-          `}
-        </style>
-        <div className="flex gap-2 md:gap-4 hide-scrollbar">
-          {styles[activeTab].map((style) => (
-            <span
-              key={style}
-              className={`text-white text-xs sm:text-sm cursor-pointer px-3 sm:px-4 py-1 sm:py-2 rounded-full whitespace-nowrap flex-shrink-0 transition-all hover:scale-105 ${
-                formData.roomType === style.toLowerCase()
-                  ? 'bg-white/10 border-white'
-                  : 'bg-[#0B0B0B] border-[#6D6D6D]'
-              }`}
-              style={{ border: "1px solid" }}
-              onClick={() => handleChange(style.toLowerCase(), "roomType")}
-            >
-              {style}
-            </span>
-          ))}
-        </div>
+        {styles[activeTab]?.map((style) => (
+          <span
+            key={style}
+            className={`text-white text-xs sm:text-sm cursor-pointer px-3 sm:px-4 py-1 sm:py-2 rounded-full whitespace-nowrap flex-shrink-0 transition-all hover:scale-105 ${
+              formData.roomType === style.toLowerCase()
+                ? "bg-white/10 border-white"
+                : "bg-[#0B0B0B] border-[#6D6D6D]"
+            }`}
+            style={{ border: "1px solid" }}
+            onClick={() => handleChange(style.toLowerCase(), "roomType")}
+          >
+            {style}
+          </span>
+        ))}
       </div>
     </div>
-
     {/* Next Button */}
     <button
       className="flex items-center justify-center rounded-full transition flex-shrink-0 hover:scale-105 active:scale-95"
@@ -494,34 +555,21 @@ export default function Form({ selectedImage }) {
       style={{
         width: "32px",
         height: "32px",
-        opacity: 1,
         borderRadius: "40px",
         border: "1px solid #FFFFFF",
         background: "#7A1FF133",
         boxShadow: "0px 0px 8px 0px #8A38F51F",
       }}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        style={{ width: "12px", height: "12px" }}
-      >
-        <path
-          d="M9 5l7 7-7 7"
-          fill="none"
-          stroke="white"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style={{ width: "12px", height: "12px" }}>
+        <path d="M9 5l7 7-7 7" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </button>
   </div>
 </div>
-
       {/* Main Content Grid */}
       <div className="w-full max-w-7xl mx-auto mt-8 md:mt-12 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-        
+       
         {/* Left Column - Upload and Form */}
         <div className="space-y-6">
           {/* Upload Box */}
@@ -529,7 +577,6 @@ export default function Form({ selectedImage }) {
             <div className="text-white font-poppins font-medium text-sm sm:text-[16px] leading-[140%] mb-3">
               Upload Image
             </div>
-
             <div
               className="w-full aspect-video max-h-[400px] flex justify-center items-center cursor-pointer relative rounded-lg border-2 border-dashed border-[#6D6D6D] bg-[#6D6D6D1A]"
               onClick={() => inpRef.current.click()}
@@ -553,7 +600,6 @@ export default function Form({ selectedImage }) {
                         onError={() => setIsImageLoaded(false)}
                       />
                     </div>
-
                     <svg
                       onClick={(e) => {
                         e.stopPropagation();
@@ -578,8 +624,16 @@ export default function Form({ selectedImage }) {
                     />
                   </div>
                   <p className="text-white/70 text-center font-poppins font-normal text-sm sm:text-[16px] leading-[140%] max-w-[200px] sm:max-w-none">
-                    Drag & drop or click to upload a photo
-                  </p>
+  Drag & drop or click to upload a photo
+</p>
+<p className="text-white/50 text-center font-poppins font-light text-[12px] sm:text-sm mt-1 leading-[140%]">
+  Only .jpg, .jpeg, .png formats are accepted (Max size: 5MB)
+</p>
+{uploadError && (
+    <p className="text-red-400 text-center font-poppins text-xs sm:text-sm mt-2">
+      {uploadError}
+    </p>
+  )}
                 </div>
               )}
               <input
@@ -592,7 +646,6 @@ export default function Form({ selectedImage }) {
               />
             </div>
           </div>
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Room Style and Number of Designs */}
@@ -603,7 +656,7 @@ export default function Form({ selectedImage }) {
                   {activeTab === "Interiors"
                     ? "Select Room Style"
                     : activeTab === "Exteriors"
-                      ? "Select House Angle"
+                      ? "Select Style"
                       : "Select Space"}
                 </label>
                 <div className="relative">
@@ -628,7 +681,6 @@ export default function Form({ selectedImage }) {
                   </div>
                 </div>
               </div>
-
               {/* Number of Designs */}
               <div className="space-y-2">
                 <label className="text-white text-sm sm:text-[16px] font-poppins font-normal leading-[140%]">
@@ -657,13 +709,11 @@ export default function Form({ selectedImage }) {
                 </div>
               </div>
             </div>
-
             {/* AI Strength */}
             <div className="space-y-4">
               <label className="text-white text-sm sm:text-[16px] font-poppins font-normal leading-[140%]">
                 AI Styling Strength
               </label>
-
               <div className="space-y-3">
                 <div className="relative w-full h-2 rounded-[16px] bg-[#6D6D6D33]">
                   <div
@@ -682,7 +732,6 @@ export default function Form({ selectedImage }) {
                     />
                   </div>
                 </div>
-
                 <div className="flex justify-between w-full">
                   {["Low", "Medium", "High"].map((level) => (
                     <span
@@ -698,7 +747,6 @@ export default function Form({ selectedImage }) {
                 </div>
               </div>
             </div>
-
             {/* Create Magic Button */}
             <button
               type="submit"
@@ -709,13 +757,11 @@ export default function Form({ selectedImage }) {
             </button>
           </form>
         </div>
-
         {/* Right Column - Generated Image */}
         <div className="space-y-4 md:space-y-6">
           <div className="text-white font-poppins font-medium text-sm sm:text-[16px] leading-[140%]">
             Generated Image
           </div>
-
           <div className="w-full aspect-video max-h-[400px] rounded-lg border border-dashed border-[#6D6D6D] bg-[#6D6D6D1A] relative">
             <div className="w-full h-full rounded-lg relative flex items-center justify-center overflow-hidden p-4">
               {generatedImages.length > 0 ? (
@@ -747,11 +793,10 @@ export default function Form({ selectedImage }) {
               )}
             </div>
           </div>
-
           {/* Action Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
               className="w-full h-12 sm:h-[44px] rounded-[30px] border border-[#C22CA299] flex items-center justify-center gap-2 px-4 py-2 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:brightness-110"
               style={{
@@ -763,11 +808,11 @@ export default function Form({ selectedImage }) {
               </span>
               <img src={Frame} alt="Frame Icon" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
             </button>
-
             <button
               type="button"
               onClick={handleDownload}
-              className="w-full h-12 sm:h-[44px] mb-6 rounded-[30px] border border-[#8A38F5] flex items-center justify-center gap-2 px-4 py-2 bg-[#8A38F580] group relative overflow-hidden transition-all duration-300 hover:bg-gradient-to-r hover:from-[#8A38F5] hover:to-[#C22CA2] hover:scale-105 hover:shadow-lg"
+              disabled={!currentImageUrl}
+              className="w-full h-12 sm:h-[44px] rounded-[30px] border border-[#8A38F5] flex items-center justify-center gap-2 px-4 py-2 bg-[#8A38F580] group relative overflow-hidden transition-all duration-300 hover:bg-gradient-to-r hover:from-[#8A38F5] hover:to-[#C22CA2] hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#8A38F580]"
             >
               <span className="text-white text-sm sm:text-[16px] font-poppins font-normal leading-[100%] transition-colors duration-300 z-[10]">
                 Download

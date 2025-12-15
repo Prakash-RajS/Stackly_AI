@@ -24,7 +24,7 @@ export default function AfterUiPlans() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await fetch("https://www.stacklycloud.com/admin/api/plans/");
+        const response = await fetch("https://www.ai.stacklycloud.com/stackly_admin/api/plans/");
         if (!response.ok) {
           throw new Error("Failed to fetch plans");
         }
@@ -137,7 +137,7 @@ export default function AfterUiPlans() {
             <h3 className="font-bold text-sm sm:text-2xl text-white text-center">
               {plan.name}
               {plan.tier === "basic" && (
-                <span className="text-white text-[9px] sm:text-lg"> (Free)</span>
+                <span className="text-white text-[9px] sm:text-lg"> </span>
               )}
             </h3>
           </div>

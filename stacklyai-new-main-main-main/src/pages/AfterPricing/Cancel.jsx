@@ -16,7 +16,7 @@ export default function Cancel() {
     const name = localStorage.getItem("billing_name");
 
     if (email && name) {
-      axios.post("https://www.stacklycloud.com/api/pricing/send-payment-failed-email", {
+      axios.post("https://www.ai.stacklycloud.com/api/pricing/send-payment-failed-email", {
         email,
         name
       }).then(() => {
@@ -65,7 +65,7 @@ export default function Cancel() {
         </div>
 
         {/* Button */}
-        <Link to="/api#afteruiplan">
+        <Link to="/apiconnect#afteruiplan">
           <button className="w-full max-w-[503px] h-[52px] flex items-center justify-center gap-[10px] rounded-[30px] border border-[#FFFFFF1A] px-[30px] py-[10px] bg-[#8A38F533] opacity-100 mt-8 sm:mt-[20px]">
             {/* Left image */}
             <img src={Arrow} alt="Back Icon" className="w-[24px] h-[18px] opacity-100" />

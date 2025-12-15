@@ -43,23 +43,26 @@ useEffect(() => {
     if (!token) return;
 
     try {
-      const profileResponse = await axios.get("https://www.stacklycloud.com/api/profile", {
+      const profileResponse = await axios.get("https://www.ai.stacklycloud.com/api/profile", {
         params: { userid: userInfo.userId },
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const profilePicUrl = profileResponse.data.profile_pic
-        ? `https://www.stacklycloud.com/api/${profileResponse.data.profile_pic}?t=${Date.now()}`
-        : profile;
+      // FIXED: Use the direct S3 URL from backend (same as Profile page)
+      const profilePicUrl = 
+        profileResponse.data.profile_pic_url || 
+        profileResponse.data.profile_pic || 
+        profile;
 
       setProfilePic(profilePicUrl);
 
-      const subscriptionResponse = await axios.get("https://www.stacklycloud.com/api/subscription", {
+      const subscriptionResponse = await axios.get("https://www.ai.stacklycloud.com/api/subscription", {
         params: { userid: userInfo.userId },
         headers: { Authorization: `Bearer ${token}` },
       });
 
       setActivePlan(subscriptionResponse.data.current_plan || "Basic");
+
     } catch (err) {
       console.error("Error fetching user data:", err);
       setProfilePic(profile);
@@ -74,7 +77,8 @@ useEffect(() => {
     "/sign-up", "/sign-in", "/otp", "/forgetpg", "/signupotp",
     "/resetpassword", "/resetpopup", "/signuppopup", "/heroforgetpg",
     "/afterconformationpage", "/afterconformationpage1" , "/afterbilling" ,
-    "/afterpaymentprocessing" , "/afterpayment" ,"/cancel"
+    "/afterpaymentprocessing" , "/afterpayment" ,"/cancel", "/explore/livingroom", "/explore/bedroom", "/explore/kitchen",
+    "/explore/bathroom", "/explore/office", "/explore/outdoor", "/explore/others"
   ];
   const isHiddenPage = hiddenPages.includes(location.pathname.toLowerCase());
   if (isHiddenPage) return null;
@@ -84,14 +88,14 @@ useEffect(() => {
         { to: "/", label: "Canvas" },
         { to: "/products", label: "My Spaces" },
         { to: "/pricing", label: "Inspirations" },
-        { to: "/api", label: "API" },
+        { to: "/apiconnect", label: "API" },
         { to: "/contact", label: "Contact Us" },
       ]
     : [
         { to: "/", label: "Home" },
         { to: "/products", label: "Features" },
         { to: "/pricing", label: "Pricing" },
-        { to: "/api", label: "API" },
+        { to: "/apiconnect", label: "API" },
         { to: "/contact", label: "Contact Us" },
       ];
 

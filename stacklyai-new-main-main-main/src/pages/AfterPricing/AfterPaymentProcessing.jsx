@@ -21,13 +21,13 @@ export default function AfterPaymentProcessing() {
     if (sessionId) {
       setHasSessionId(true);
       axios
-        .get(`https://www.stacklycloud.com/api/pricing/verify-payment/?session_id=${sessionId}`)
+        .get(`https://www.ai.stacklycloud.com/api/pricing/verify-payment/?session_id=${sessionId}`)
         .then((res) => {
           if (!isMounted) return;
           if (res.data.success) {
             setStatus("Payment verified. Updating subscription...");
             return axios.post(
-              "https://www.stacklycloud.com/api/pricing/update-subscription/",
+              "https://www.ai.stacklycloud.com/api/pricing/update-subscription/",
               null,
               { params: { session_id: sessionId } }
             );
